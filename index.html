@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PROCURA - Assistant des marchés publics</title>
+    <!-- Google Fonts: Outfit and Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Supabase Client JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Logo Grid Background (Version Initiale) -->
+    <div class="logo-grid-background"></div>
+
+    <!-- Building Container (Caché par défaut dans le CSS) -->
+    <div class="building-container">
+        <img src="assets/bg.png" alt="Building Background" class="building-img">
+    </div>
+
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="header">
+            <div class="logo-area">
+                <img src="LOGO PROCURA.jpg" alt="PROCURA" class="logo-img">
+            </div>
+            <div class="header-actions">
+                <!-- Profil connecté (masqué par défaut) -->
+                <div class="user-profile hidden" id="userProfile">
+                    <div class="user-info">
+                        <span class="user-email" id="userEmail"></span>
+                        <span class="user-plan-badge plan-free" id="userPlanBadge">Gratuit</span>
+                    </div>
+                    <button class="auth-btn logout-btn" id="logoutBtn">
+                        <i data-lucide="log-out" class="mini-icon"></i> Déconnexion
+                    </button>
+                </div>
+
+                <!-- Déconnecté -->
+                <div class="guest-actions" id="guestActions">
+                    <button class="auth-btn login-btn" id="headerLoginBtn">Connexion</button>
+                    <button class="auth-btn signup-btn" id="headerSignupBtn">Créer un compte</button>
+                </div>
+
+                <button class="help-btn">
+                    <i data-lucide="help-circle"></i>
+                    Besoin d'aide ?
+                </button>
+            </div>
+        </header>
+
+        <!-- HERO SECTION (Always visible) -->
+        <section class="hero">
+            <h1 class="hero-title">PROCURA<span class="ai-badge">Ai</span></h1>
+            <div class="powered-by">Powered by Bass Consulting</div>
+            <h2 class="hero-subtitle">Votre <span class="text-gold">assistant intelligent</span> des marchés publics</h2>
+            <p class="hero-text">Posez votre question et obtenez une réponse immédiate et fiable.</p>
+        </section>
+
+        <!-- MAIN VIEW (Landing) -->
+        <main class="main-view" id="mainView">
+
+            <section class="interaction-area">
+                <div class="chat-input-wrapper">
+                    <div class="input-box">
+                        <button class="icon-btn mic-btn" title="Saisie vocale" id="micBtn">
+                            <i data-lucide="mic"></i>
+                        </button>
+                        <textarea id="mainInput" placeholder="Posez votre question sur les marchés publics..." rows="1"></textarea>
+                        <div class="input-actions">
+                            <button class="btn-primary" title="Envoyer" id="sendBtn">
+                                <i data-lucide="send" class="small-icon"></i> Envoyer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="suggestions-container">
+                    <p class="suggestions-title">Exemples de questions :</p>
+                    <div class="suggestions">
+                        <button class="suggestion-btn" data-q="Comment répondre à un appel d'offres ?">
+                            <i data-lucide="file-text"></i> Comment répondre à un appel d'offres ?
+                        </button>
+                        <button class="suggestion-btn" data-q="Quels documents fournir ?">
+                            <i data-lucide="folder"></i> Quels documents fournir ?
+                        </button>
+                        <button class="suggestion-btn" data-q="Quels sont les critères d'évaluation ?">
+                            <i data-lucide="scale"></i> Quels sont les critères d'évaluation ?
+                        </button>
+                        <button class="suggestion-btn" data-q="Quels sont les délais des procédures ?">
+                            <i data-lucide="clock"></i> Quels sont les délais des procédures ?
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="features">
+                <div class="feature-card">
+                    <div class="feature-icon icon-navy"><i data-lucide="message-square"></i></div>
+                    <div class="feature-content">
+                        <h3>Réponses instantanées</h3>
+                        <p>Obtenez des réponses claires et précises immédiatement.</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon icon-gold"><i data-lucide="shield-check"></i></div>
+                    <div class="feature-content">
+                        <h3>Fiable et à jour</h3>
+                        <p>Informations basées sur la réglementation en vigueur.</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon icon-navy"><i data-lucide="book-open"></i></div>
+                    <div class="feature-content">
+                        <h3>Expertise spécialisée</h3>
+                        <p>Une IA entraînée sur les marchés publics.</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon icon-gold"><i data-lucide="lock"></i></div>
+                    <div class="feature-content">
+                        <h3>Confidentialité garantie</h3>
+                        <p>Vos données et échanges sont 100% confidentiels.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- PAYWALL MODAL -->
+        <div class="paywall-overlay hidden" id="paywallModal">
+            <div class="paywall-card-container">
+                <div class="paywall-card" id="stepPlans">
+                    <div class="paywall-main-header">
+                        <h1>Choisissez le plan qui vous accompagne</h1>
+                        <p>1 question gratuite par jour. Au-delà, passez à un plan supérieur pour profiter de toutes les fonctionnalités de <span class="text-navy">PROCURA</span>.</p>
+                    </div>
+
+                    <div class="paywall-grid">
+                        <!-- GRATUIT -->
+                        <div class="plan-card-v2">
+                            <div class="plan-icon"><i data-lucide="gift"></i></div>
+                            <div class="plan-name-v2">GRATUIT</div>
+                            <div class="plan-price-v2">0$ <span class="price-sep">/</span> <span class="price-local">0 FCFA</span></div>
+                            <div class="plan-limit-badge blue-light">1 question / jour</div>
+                            <ul class="plan-features-v2">
+                                <li class="feat-ok">1 question par jour</li>
+                                <li class="feat-ok">Réponse standard</li>
+                                <li class="feat-ok">Accès limité aux notions de base</li>
+                                <li class="feat-no">Pas d'accès multi-pays</li>
+                                <li class="feat-no">Pas de références détaillées</li>
+                                <li class="feat-no">Pas d'analyse de documents</li>
+                                <li class="feat-no">Pas de téléchargement</li>
+                            </ul>
+                            <div class="plan-footer-info">
+                                <i data-lucide="info"></i> Idéal pour découvrir PROCURA
+                            </div>
+                            <button class="plan-btn-v2" onclick="handlePlanChoice('free')">Choisir ce plan</button>
+                        </div>
+
+                        <!-- JOURNALIER -->
+                        <div class="plan-card-v2">
+                            <div class="plan-icon"><i data-lucide="calendar"></i></div>
+                            <div class="plan-name-v2">JOURNALIER</div>
+                            <div class="plan-price-v2">1$ <span class="price-sep">/</span> <span class="price-local">~600 FCFA</span></div>
+                            <div class="plan-limit-badge blue-mid">3 questions / jour</div>
+                            <ul class="plan-features-v2">
+                                <li class="feat-ok">3 questions par jour</li>
+                                <li class="feat-ok">Réponses détaillées</li>
+                                <li class="feat-ok">Accès réglementation nationale</li>
+                                <li class="feat-ok">Historique de la journée</li>
+                                <li class="feat-no">Pas d'accès multi-pays</li>
+                                <li class="feat-no">Pas d'analyse de documents</li>
+                                <li class="feat-no">Pas de téléchargement</li>
+                            </ul>
+                            <div class="plan-footer-info">
+                                <i data-lucide="info"></i> Parfait pour un besoin ponctuel ou urgent
+                            </div>
+                            <button class="plan-btn-v2" onclick="handlePlanChoice('daily')">Choisir ce plan</button>
+                        </div>
+
+                        <!-- HEBDOMADAIRE -->
+                        <div class="plan-card-v2">
+                            <div class="plan-icon"><i data-lucide="calendar-days"></i></div>
+                            <div class="plan-name-v2">HEBDOMADAIRE</div>
+                            <div class="plan-price-v2">3$ <span class="price-sep">/</span> <span class="price-local">~1 800 FCFA</span></div>
+                            <div class="plan-limit-badge green-light">20 questions / semaine</div>
+                            <ul class="plan-features-v2">
+                                <li class="feat-ok">20 questions par semaine</li>
+                                <li class="feat-ok">Réponses techniques approfondies</li>
+                                <li class="feat-ok">Accès multi-pays</li>
+                                <li class="feat-ok">Historique hebdomadaire</li>
+                                <li class="feat-no">Pas d'analyse de documents</li>
+                                <li class="feat-no">Pas d'accès bailleurs</li>
+                                <li class="feat-no">Pas de téléchargement</li>
+                            </ul>
+                            <div class="plan-footer-info">
+                                <i data-lucide="info"></i> Idéal pour les utilisateurs réguliers
+                            </div>
+                            <button class="plan-btn-v2" onclick="handlePlanChoice('weekly')">Choisir ce plan</button>
+                        </div>
+
+                        <!-- MENSUEL (POPULAIRE) -->
+                        <div class="plan-card-v2 featured-popular">
+                            <div class="card-badge popular-badge"><i data-lucide="star"></i> POPULAIRE</div>
+                            <div class="plan-icon"><i data-lucide="infinity"></i></div>
+                            <div class="plan-name-v2">MENSUEL</div>
+                            <div class="plan-price-v2">15$ <span class="price-sep">/</span> <span class="price-local">~9 000 FCFA</span></div>
+                            <div class="plan-limit-badge navy">Questions illimitées</div>
+                            <ul class="plan-features-v2">
+                                <li class="feat-ok">Questions illimitées</li>
+                                <li class="feat-ok">Réponses expertes avec références juridiques</li>
+                                <li class="feat-ok">Accès multi-pays</li>
+                                <li class="feat-ok">Accès bailleurs (BM, BAD, AFD)</li>
+                                <li class="feat-ok">Historique complet + export</li>
+                            </ul>
+                            <div class="key-feature-box">
+                                <div class="key-feat-header"><i data-lucide="file-text"></i> FONCTION CLÉ</div>
+                                <p>Upload de documents, Analyse des DAO et dossiers, Identification des risques, Recommandations concrètes</p>
+                            </div>
+                            <ul class="plan-features-v2">
+                                <li class="feat-no">Pas de téléchargement (réservé à l'offre annuelle)</li>
+                            </ul>
+                            <div class="plan-footer-info">
+                                <i data-lucide="info"></i> Votre outil d'analyse et d'aide à la décision au quotidien
+                            </div>
+                            <button class="plan-btn-v2 btn-navy" onclick="handlePlanChoice('monthly')">Choisir ce plan</button>
+                        </div>
+
+                        <!-- ANNUEL (RECOMMANDÉ) -->
+                        <div class="plan-card-v2 featured-recommended">
+                            <div class="card-badge recommended-badge"><i data-lucide="star"></i> RECOMMANDÉ</div>
+                            <div class="plan-icon"><i data-lucide="gem"></i></div>
+                            <div class="plan-name-v2 gold-text">ANNUEL</div>
+                            <div class="plan-price-v2 gold-text">100 000 FCFA</div>
+                            <div class="plan-price-sub">~165$ / an</div>
+                            <div class="plan-limit-badge gold-bg">Questions illimitées</div>
+                            <ul class="plan-features-v2">
+                                <li class="feat-ok">Tout le plan mensuel</li>
+                                <li class="feat-ok">Analyse avancée et continue</li>
+                                <li class="feat-ok">Accès total multi-pays + bailleurs</li>
+                            </ul>
+                            <div class="exclusive-box">
+                                <div class="excl-header"><i data-lucide="download"></i> EXCLUSIVITÉS PREMIUM</div>
+                                <p>Téléchargement des analyses et réponses (PDF, dossiers), Export complet des historiques, Génération de rapports exploitables</p>
+                            </div>
+                            <div class="exclusive-box">
+                                <div class="excl-header"><i data-lucide="user"></i> ACCOMPAGNEMENT</div>
+                                <p>Suggestions stratégiques, Optimisation des DAO, Aide à la prise de décision</p>
+                            </div>
+                            <ul class="plan-features-v2">
+                                <li class="feat-ok">Priorité de traitement</li>
+                                <li class="feat-ok">Accès contenus exclusifs</li>
+                                <li class="feat-ok">Mises à jour réglementaires</li>
+                                <li class="feat-ok">Accès anticipé aux nouvelles fonctionnalités</li>
+                            </ul>
+                            <div class="plan-footer-info">
+                                <i data-lucide="info"></i> L'assistant stratégique permanent pour sécuriser et valoriser vos décisions
+                            </div>
+                            <button class="plan-btn-v2 btn-gold" onclick="handlePlanChoice('annual')">Choisir ce plan</button>
+                        </div>
+                    </div>
+
+                    <!-- WARNING BANNER -->
+                    <div class="warning-banner">
+                        <div class="warning-icon"><i data-lucide="shield-check"></i></div>
+                        <p><strong>Une seule erreur en marchés publics peut coûter des millions.</strong><br>PROCURA vous aide à décider juste, sécuriser vos dossiers et gagner du temps.</p>
+                    </div>
+
+                    <!-- TRUST BAR -->
+                    <div class="trust-bar">
+                        <div class="trust-item">
+                            <i data-lucide="lock"></i>
+                            <div>
+                                <strong>Sécurité & Confidentialité</strong>
+                                <span>Vos données sont protégées et confidentielles.</span>
+                            </div>
+                        </div>
+                        <div class="trust-item">
+                            <i data-lucide="scale"></i>
+                            <div>
+                                <strong>Conformité</strong>
+                                <span>Réponses basées sur les textes et standards en vigueur.</span>
+                            </div>
+                        </div>
+                        <div class="trust-item">
+                            <i data-lucide="clock"></i>
+                            <div>
+                                <strong>Gain de temps</strong>
+                                <span>Des réponses rapides pour des décisions éclairées.</span>
+                            </div>
+                        </div>
+                        <div class="trust-item">
+                            <i data-lucide="award"></i>
+                            <div>
+                                <strong>Expertise vérifiée</strong>
+                                <span>Une expertise de terrain au service des professionnels.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+            <!-- ══ STEP 2 : Sélection du profil ══ -->
+            <div class="paywall-card reg-step hidden" id="stepProfile">
+                <div class="reg-logo">
+                    <span class="reg-logo-text">PROCURA<span class="reg-logo-ai">Ai</span></span>
+                </div>
+                <p class="reg-tagline">Votre assistant expert des marchés publics, disponible 24h/24</p>
+
+                <div class="reg-question">Vous êtes ?</div>
+
+                <div class="profile-options">
+                    <button class="profile-card" onclick="handleProfileChoice('agent')">
+                        <span class="profile-icon">🏛️</span>
+                        <div class="profile-info">
+                            <div class="profile-title">Agent public / Professionnel</div>
+                            <div class="profile-desc">Accédez aux textes réglementaires, décrets et procédures officielles de passation des marchés publics. Maîtrisez le cadre juridique de votre pays.</div>
+                        </div>
+                    </button>
+
+                    <button class="profile-card" onclick="handleProfileChoice('operateur')">
+                        <span class="profile-icon">🏢</span>
+                        <div class="profile-info">
+                            <div class="profile-title">Opérateur économique / Entrepreneur</div>
+                            <div class="profile-desc">Analysez les dossiers d'appels d'offres, maîtrisez les guides de soumission et accédez à la réglementation applicable à votre secteur d'activité.</div>
+                        </div>
+                    </button>
+                </div>
+
+                <button class="reg-back-link" onclick="goToStep('stepPlans')">← Changer de plan</button>
+            </div>
+
+            <!-- ══ STEP 3 : Formulaire d'inscription ══ -->
+            <div class="paywall-card reg-step hidden" id="stepForm">
+                <div class="reg-logo">
+                    <span class="reg-logo-text">PROCURA<span class="reg-logo-ai">Ai</span></span>
+                </div>
+
+                <div class="reg-profile-badge" id="regProfileBadge">AGENT PUBLIC / PROFESSIONNEL</div>
+
+                <h3 class="reg-form-title">Connexion / Inscription</h3>
+                <p class="reg-form-subtitle">Entrez votre email professionnel pour recevoir votre lien d'accès sécurisé.</p>
+
+                <div class="reg-form-group">
+                    <label class="reg-label">Email</label>
+                    <input type="email" id="regEmail" class="reg-input" placeholder="nom@exemple.com" />
+                </div>
+
+                <button class="reg-submit-btn" onclick="handleRegSubmit()">Recevoir le lien d'accès</button>
+
+                <div class="reg-confirmation hidden" id="regConfirmation">
+                    ✅ Un lien d'accès a été envoyé à votre adresse email. Vérifiez votre boîte de réception.
+                </div>
+
+                <button class="reg-back-link" onclick="goToStep('stepProfile')">← Changer de profil</button>
+            </div> <!-- End stepForm -->
+
+        </div> <!-- End paywall-card-container -->
+    </div> <!-- End paywall-overlay -->
+
+
+        <main class="chat-view hidden" id="chatView">
+            <div class="chat-history" id="chatHistory">
+                <!-- Chat messages will be injected here -->
+            </div>
+            <div class="chat-bottom">
+                <!-- Question counter -->
+                <div class="question-counter" id="questionCounter">
+                    <span id="counterText">💡 <strong>3 questions gratuites</strong> restantes</span>
+                </div>
+                <div class="chat-input-wrapper compact">
+                    <div class="input-box" id="chatInputBox">
+                        <textarea id="chatInput" placeholder="Posez une autre question..." rows="1"></textarea>
+                        <div class="input-actions">
+                            <button class="icon-btn" title="Saisie vocale">
+                                <i data-lucide="mic"></i>
+                            </button>
+                            <button class="icon-btn primary-btn" title="Envoyer" id="chatSendBtn">
+                                <i data-lucide="send"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+
+        <!-- FOOTER -->
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="footer-logo-text">
+                    <div class="footer-brand">PROCURA<span class="ai-badge-footer">Ai</span></div>
+                    <div class="footer-powered">Powered by Bass Consulting</div>
+                </div>
+                <div class="footer-links">
+                    <a href="#">À propos</a>
+                    <a href="#">Ressources</a>
+                    <a href="#">Contact</a>
+                </div>
+                <div class="footer-security">
+                    <i data-lucide="shield-check"></i> Vos échanges sont confidentiels et sécurisés
+                </div>
+            </div>
+            <div class="copyright">
+                &copy; <span id="year"></span> <span class="text-gold">PROCURA</span> - Tous droits réservés.
+            </div>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
