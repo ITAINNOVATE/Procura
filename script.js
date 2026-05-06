@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     //  CONFIGURATION — Remplacez par votre clé API Gemini
     //  Obtenez-la gratuitement sur : https://aistudio.google.com/
     // ══════════════════════════════════════════════════════════
-    const GEMINI_API_KEY = (window.CONFIG && window.CONFIG.GEMINI_API_KEY) ? window.CONFIG.GEMINI_API_KEY : 'VOTRE_CLE_API_GEMINI_ICI';
+    const GEMINI_API_KEY = (window.CONFIG && window.CONFIG.GEMINI_API_KEY) ? window.CONFIG.GEMINI_API_KEY : ((typeof CONFIG !== 'undefined' && CONFIG.GEMINI_API_KEY) ? CONFIG.GEMINI_API_KEY : 'VOTRE_CLE_API_GEMINI_ICI');
     const GEMINI_MODEL   = 'gemini-2.5-flash';
 
     // ══════════════════════════════════════════════════════════
