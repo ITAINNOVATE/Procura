@@ -608,8 +608,10 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             parts: [{ text: userMessage }]
         });
 
-        // No API key → use offline fallback
-        if (!GEMINI_API_KEY || GEMINI_API_KEY === 'VOTRE_CLE_API_ICI') {
+        const isVercel = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+        // No API key → use offline fallback (only check locally, as on Vercel the key is securely fetched in the backend proxy)
+        if (!isVercel && (!GEMINI_API_KEY || GEMINI_API_KEY === 'VOTRE_CLE_API_GEMINI_ICI' || GEMINI_API_KEY === 'VOTRE_CLE_API_ICI')) {
             const fallback = getFallbackResponse(userMessage);
             showBotMessage(fallback);
             conversationHistory.push({ role: 'model', parts: [{ text: fallback }] });
@@ -617,8 +619,10 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         }
 
         try {
-            // Use streamGenerateContent for real-time streaming
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+            // Use streamGenerateContent for real-time streaming (call secure Vercel Edge Function in prod, direct Google API in dev)
+            const url = isVercel 
+                ? '/api/gemini'
+                : `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
 
             const body = {
                 system_instruction: {
