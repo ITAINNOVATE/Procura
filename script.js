@@ -279,16 +279,23 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
     }
 
     function showPaywall() {
-        const modal = document.getElementById('paywallModal');
-        if (modal) modal.classList.remove('hidden');
+        const modal   = document.getElementById('paywallModal');
+        const backTop = document.getElementById('paywallBackTop');
+        if (modal) {
+            modal.classList.remove('hidden');
+            // Remettre en haut à chaque ouverture
+            modal.scrollTop = 0;
+        }
+        if (backTop) backTop.classList.remove('visible');
         lockInput();
 
-        // Bouton retour en haut — apparaît dès que l'utilisateur scroll dans la modale
-        const container = document.getElementById('paywallCardContainer');
-        const backTop   = document.getElementById('paywallBackTop');
-        if (container && backTop) {
-            container.addEventListener('scroll', function onPaywallScroll() {
-                if (container.scrollTop > 200) {
+        // Réinitialiser les icônes Lucide (le bouton vient d'être affiché)
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Bouton retour en haut — s'affiche dès 200px de scroll dans l'overlay
+        if (modal && backTop) {
+            modal.addEventListener('scroll', function () {
+                if (modal.scrollTop > 200) {
                     backTop.classList.add('visible');
                 } else {
                     backTop.classList.remove('visible');

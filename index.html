@@ -140,12 +140,15 @@
 
         <!-- PAYWALL MODAL -->
         <div class="paywall-overlay hidden" id="paywallModal">
+
+            <!-- Bouton retour en haut — à l'intérieur de l'overlay pour que position:fixed fonctionne -->
+            <button class="paywall-back-top" id="paywallBackTop" title="Retour en haut"
+                onclick="document.getElementById('paywallModal').scrollTo({top:0,behavior:'smooth'})">
+                <i data-lucide="chevron-up"></i>
+            </button>
+
             <div class="paywall-card-container" id="paywallCardContainer">
                 <div class="paywall-card" id="stepPlans">
-                    <!-- Bouton retour en haut -->
-                    <button class="paywall-back-top" id="paywallBackTop" title="Retour en haut" onclick="document.getElementById('paywallCardContainer').scrollTo({top:0,behavior:'smooth'})">
-                        <i data-lucide="chevron-up"></i>
-                    </button>
                     <div class="paywall-main-header">
                         <h1>Choisissez le plan qui vous accompagne</h1>
                         <p>1 question gratuite par jour. Au-delà, passez à un plan supérieur pour profiter de toutes les fonctionnalités de <span class="text-navy">PROCURA</span>.</p>
