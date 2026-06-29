@@ -542,7 +542,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         headerSignupBtn.addEventListener('click', () => {
             const modal = document.getElementById('paywallModal');
             if (modal) modal.classList.remove('hidden');
-            goToStep('stepPlans');
+            goToStep('stepForm');
         });
     }
 
