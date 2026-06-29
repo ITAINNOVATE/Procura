@@ -163,7 +163,7 @@ body {
     height: 1176px;         /* proportionnel (+20% de 980px) */
     pointer-events: none;
     z-index: -1;            /* Derrière TOUT le contenu de la page */
-    opacity: 0.20;          /* 20% — légèrement plus visible */
+    opacity: 0.28;          /* 28% */
     /* Teinte beige clair #E9DDC8 — pas de flou, pas de halo, pas de dorure */
     filter: sepia(40%) saturate(0.6) brightness(0.88) contrast(1.05);
 }
