@@ -429,7 +429,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
     window.goToStep = function(stepId) {
         // Hide all cards
-        const allSteps = ['stepPlans', 'stepProfile', 'stepForm'];
+        const allSteps = ['stepPlans', 'stepProfile', 'stepForm', 'stepSignUp'];
         allSteps.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.add('hidden');
@@ -450,73 +450,254 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
     window.handleProfileChoice = function(profile) {
         selectedProfile = profile;
-        const badge     = document.getElementById('regProfileBadge');
-        if (profile === 'agent') {
-            badge.textContent  = 'AGENT PUBLIC / PROFESSIONNEL';
-            badge.className    = 'reg-profile-badge badge-agent';
-        } else {
-            badge.textContent  = 'OPÉRATEUR ÉCONOMIQUE / ENTREPRENEUR';
-            badge.className    = 'reg-profile-badge badge-operateur';
+        const profileSelect = document.getElementById('regProfileType');
+        if (profileSelect) {
+            if (profile === 'agent') {
+                profileSelect.value = 'administration';
+            } else {
+                profileSelect.value = 'entreprise';
+            }
+            validateSignUpForm();
         }
-        // Clear previous email / confirmation
-        document.getElementById('regEmail').value = '';
-        document.getElementById('regConfirmation').classList.add('hidden');
-
+        
         document.getElementById('stepProfile').classList.add('hidden');
-        document.getElementById('stepForm').classList.remove('hidden');
+        document.getElementById('stepSignUp').classList.remove('hidden');
     };
 
-    window.handleRegSubmit = async function() {
-        const emailInput = document.getElementById('regEmail');
-        const email = emailInput.value.trim();
-        const submitBtn = document.querySelector('.reg-submit-btn');
-        const confirmationEl = document.getElementById('regConfirmation');
+    // ── Password Visibility Toggle ─────────────────────────
+    window.togglePasswordVisibility = function(fieldId, buttonEl) {
+        const input = document.getElementById(fieldId);
+        if (!input) return;
+        
+        const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+        input.setAttribute('type', type);
+        
+        // Update eye icon
+        const icon = buttonEl.querySelector('i');
+        if (icon) {
+            if (type === 'text') {
+                icon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                icon.setAttribute('data-lucide', 'eye');
+            }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    };
 
-        if (!email || !email.includes('@')) {
-            emailInput.focus();
-            emailInput.style.borderColor = '#e55';
+    // ── Password Strength Calculation ──────────────────────
+    window.handlePasswordInput = function() {
+        const password = document.getElementById('regPassword').value;
+        const bar = document.getElementById('pwdStrengthBar');
+        const text = document.getElementById('pwdStrengthText');
+        
+        if (!bar || !text) return;
+        
+        if (!password) {
+            bar.className = 'pwd-strength-bar';
+            text.textContent = 'Très faible';
+            text.className = 'pwd-strength-text';
             return;
         }
-        emailInput.style.borderColor = '';
+        
+        let score = 0;
+        if (password.length >= 6) score++;
+        if (password.length >= 10) score++;
+        if (/[A-Z]/.test(password)) score++;
+        if (/[0-9]/.test(password)) score++;
+        if (/[^A-Za-z0-9]/.test(password)) score++;
+        
+        if (score <= 2) {
+            bar.className = 'pwd-strength-bar weak';
+            text.textContent = 'Faible';
+            text.className = 'pwd-strength-text weak';
+        } else if (score <= 4) {
+            bar.className = 'pwd-strength-bar medium';
+            text.textContent = 'Moyen';
+            text.className = 'pwd-strength-text medium';
+        } else {
+            bar.className = 'pwd-strength-bar strong';
+            text.textContent = 'Fort';
+            text.className = 'pwd-strength-text strong';
+        }
+    };
 
+    // ── Real-Time Form Validation ──────────────────────────
+    window.validateSignUpForm = function() {
+        const lastName = document.getElementById('regLastName').value.trim();
+        const firstName = document.getElementById('regFirstName').value.trim();
+        const email = document.getElementById('regSignUpEmail').value.trim();
+        const phone = document.getElementById('regPhone').value.trim();
+        const country = document.getElementById('regCountry').value.trim();
+        const profileType = document.getElementById('regProfileType').value;
+        const password = document.getElementById('regPassword').value;
+        const confirmPassword = document.getElementById('regConfirmPassword').value;
+        const chkTerms = document.getElementById('chkTerms').checked;
+        const chkPrivacy = document.getElementById('chkPrivacy').checked;
+        
+        const submitBtn = document.getElementById('signUpSubmitBtn');
+        if (!submitBtn) return;
+        
+        // Validation flags
+        const allFilled = lastName && firstName && email && phone && country && profileType && password && confirmPassword;
+        const emailValid = email.includes('@');
+        const passwordsMatch = password === confirmPassword;
+        const passwordLongEnough = password.length >= 6;
+        const acceptedCheckboxes = chkTerms && chkPrivacy;
+        
+        if (allFilled && emailValid && passwordsMatch && passwordLongEnough && acceptedCheckboxes) {
+            submitBtn.disabled = false;
+        } else {
+            submitBtn.disabled = true;
+        }
+    };
+
+    // ── Handle Registration Submission ─────────────────────
+    window.handleSignUpSubmit = async function() {
+        const lastName = document.getElementById('regLastName').value.trim();
+        const firstName = document.getElementById('regFirstName').value.trim();
+        const email = document.getElementById('regSignUpEmail').value.trim();
+        const phone = document.getElementById('regPhone').value.trim();
+        const country = document.getElementById('regCountry').value.trim();
+        const profileType = document.getElementById('regProfileType').value;
+        const companyName = document.getElementById('regCompany').value.trim();
+        const jobTitle = document.getElementById('regJobTitle').value.trim();
+        const password = document.getElementById('regPassword').value;
+        const confirmPassword = document.getElementById('regConfirmPassword').value;
+        
+        const errorEl = document.getElementById('signUpError');
+        const successEl = document.getElementById('signUpSuccess');
+        const submitBtn = document.getElementById('signUpSubmitBtn');
+        
+        if (errorEl) errorEl.classList.add('hidden');
+        if (successEl) successEl.classList.add('hidden');
+        
+        if (password !== confirmPassword) {
+            if (errorEl) {
+                errorEl.textContent = "❌ Les mots de passe ne correspondent pas.";
+                errorEl.classList.remove('hidden');
+            }
+            return;
+        }
+        
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Envoi en cours...';
+            submitBtn.textContent = "Création en cours...";
         }
-
+        
         if (supabase) {
             try {
-                const { error } = await supabase.auth.signInWithOtp({
+                const { data, error } = await supabase.auth.signUp({
                     email: email,
+                    password: password,
                     options: {
-                        emailRedirectTo: window.location.origin,
                         data: {
-                            plan: selectedPlan || 'free',
-                            profile_type: selectedProfile || 'agent'
+                            first_name: firstName,
+                            last_name: lastName,
+                            phone: phone,
+                            country: country,
+                            profile_type: profileType,
+                            company_name: companyName,
+                            job_title: jobTitle,
+                            plan: selectedPlan || 'free'
                         }
                     }
                 });
-
+                
                 if (error) throw error;
-
-                if (confirmationEl) {
-                    confirmationEl.textContent = "✅ Un lien d'accès sécurisé a été envoyé par email. Ouvrez-le pour vous connecter.";
-                    confirmationEl.classList.remove('hidden');
+                
+                if (successEl) {
+                    successEl.textContent = "✅ Compte créé avec succès ! Un lien d'accès a été envoyé. Si besoin, vous pouvez également vous connecter directement.";
+                    successEl.classList.remove('hidden');
                 }
-                emailInput.disabled = true;
+                
+                // Si l'utilisateur est connecté automatiquement
+                if (data && data.user) {
+                    currentUser = data.user;
+                    try {
+                        await supabase.from('profiles').insert([{
+                            id: data.user.id,
+                            email: email,
+                            plan: selectedPlan || 'free',
+                            profile_type: profileType
+                        }]);
+                    } catch (pErr) {
+                        console.warn("Profiles insert fallback:", pErr);
+                    }
+                }
+                
             } catch (err) {
-                console.error("Supabase signin error:", err);
-                alert("Erreur d'authentification : " + err.message);
+                console.error("SignUp error:", err);
+                if (errorEl) {
+                    errorEl.textContent = "Erreur : " + err.message;
+                    errorEl.classList.remove('hidden');
+                }
                 if (submitBtn) {
                     submitBtn.disabled = false;
-                    submitBtn.textContent = "Recevoir le lien d'accès";
+                    submitBtn.textContent = "Créer mon compte";
                 }
             }
         } else {
-            if (confirmationEl) {
-                confirmationEl.classList.remove('hidden');
+            if (successEl) {
+                successEl.textContent = "✅ Compte créé avec succès (Mode Démonstration).";
+                successEl.classList.remove('hidden');
             }
-            emailInput.disabled = true;
+        }
+    };
+
+    // ── Handle Password Login Submission ───────────────────
+    window.handleSignIn = async function() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        const errorEl = document.getElementById('loginError');
+        const submitBtn = document.getElementById('loginSubmitBtn');
+        
+        if (errorEl) errorEl.classList.add('hidden');
+        
+        if (!email || !password) {
+            if (errorEl) {
+                errorEl.textContent = "❌ Veuillez remplir tous les champs.";
+                errorEl.classList.remove('hidden');
+            }
+            return;
+        }
+        
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Connexion...";
+        }
+        
+        if (supabase) {
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+                
+                if (error) throw error;
+                
+                currentUser = data.user;
+                await syncUserProfile();
+                updateUIForLoggedIn();
+                
+                const modal = document.getElementById('paywallModal');
+                if (modal) modal.classList.add('hidden');
+                
+            } catch (err) {
+                console.error("SignIn error:", err);
+                if (errorEl) {
+                    errorEl.textContent = "Erreur : " + err.message;
+                    errorEl.classList.remove('hidden');
+                }
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Se connecter";
+                }
+            }
+        } else {
+            currentUser = { email: email, id: 'mock-user-123' };
+            updateUIForLoggedIn();
+            const modal = document.getElementById('paywallModal');
+            if (modal) modal.classList.add('hidden');
         }
     };
 
@@ -542,7 +723,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         headerSignupBtn.addEventListener('click', () => {
             const modal = document.getElementById('paywallModal');
             if (modal) modal.classList.remove('hidden');
-            goToStep('stepForm');
+            goToStep('stepSignUp');
         });
     }
 

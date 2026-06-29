@@ -355,30 +355,188 @@
                 <button class="reg-back-link" onclick="goToStep('stepPlans')">← Changer de plan</button>
             </div>
 
-            <!-- ══ STEP 3 : Formulaire d'inscription ══ -->
+            <!-- ══ STEP 3 : Connexion (Login) ══ -->
             <div class="paywall-card reg-step hidden" id="stepForm">
                 <div class="reg-logo">
-                    <span class="reg-logo-text">PROCURA<span class="reg-logo-ai">Ai</span></span>
+                    <img src="assets/logo_procura_sans_fond.png" alt="PROCURA" class="reg-logo-img">
                 </div>
 
-                <div class="reg-profile-badge" id="regProfileBadge">AGENT PUBLIC / PROFESSIONNEL</div>
-
-                <h3 class="reg-form-title">Connexion / Inscription</h3>
-                <p class="reg-form-subtitle">Entrez votre email professionnel pour recevoir votre lien d'accès sécurisé.</p>
+                <h3 class="reg-form-title">Connexion</h3>
+                <p class="reg-form-subtitle">Accédez à votre assistant intelligent des marchés publics.</p>
 
                 <div class="reg-form-group">
-                    <label class="reg-label">Email</label>
-                    <input type="email" id="regEmail" class="reg-input" placeholder="nom@exemple.com" />
+                    <label class="reg-label" for="loginEmail">Adresse e-mail</label>
+                    <div class="reg-input-wrapper">
+                        <i data-lucide="mail" class="reg-input-icon"></i>
+                        <input type="email" id="loginEmail" class="reg-input" placeholder="nom@exemple.com" required />
+                    </div>
                 </div>
 
-                <button class="reg-submit-btn" onclick="handleRegSubmit()">Recevoir le lien d'accès</button>
-
-                <div class="reg-confirmation hidden" id="regConfirmation">
-                    ✅ Un lien d'accès a été envoyé à votre adresse email. Vérifiez votre boîte de réception.
+                <div class="reg-form-group">
+                    <label class="reg-label" for="loginPassword">Mot de passe</label>
+                    <div class="reg-input-wrapper">
+                        <i data-lucide="lock" class="reg-input-icon"></i>
+                        <input type="password" id="loginPassword" class="reg-input" placeholder="••••••••" required />
+                        <button type="button" class="reg-toggle-pwd" onclick="togglePasswordVisibility('loginPassword', this)">
+                            <i data-lucide="eye" class="pwd-eye-icon"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <button class="reg-back-link" onclick="goToStep('stepProfile')">← Changer de profil</button>
-            </div> <!-- End stepForm -->
+                <button class="reg-submit-btn" id="loginSubmitBtn" onclick="handleSignIn()">Se connecter</button>
+
+                <div class="reg-confirmation error-message hidden" id="loginError"></div>
+
+                <div class="reg-footer-links">
+                    <span>Vous n'avez pas de compte ?</span>
+                    <button class="reg-toggle-link" onclick="goToStep('stepSignUp')">Créer un compte</button>
+                </div>
+            </div> <!-- End stepForm (Connexion) -->
+
+            <!-- ══ STEP 4 : Inscription (Sign Up) ══ -->
+            <div class="paywall-card reg-step hidden" id="stepSignUp">
+                <div class="reg-logo">
+                    <img src="assets/logo_procura_sans_fond.png" alt="PROCURA" class="reg-logo-img">
+                </div>
+
+                <h3 class="reg-form-title">Créer un compte</h3>
+                <p class="reg-form-subtitle">Rejoignez PROCURA AI et accédez à votre assistant intelligent des marchés publics.</p>
+
+                <form id="signUpForm" onsubmit="event.preventDefault();" class="premium-form-grid">
+                    <!-- Informations personnelles -->
+                    <div class="form-row-2">
+                        <div class="reg-form-group">
+                            <label class="reg-label" for="regLastName">Nom <span class="required-star">*</span></label>
+                            <div class="reg-input-wrapper">
+                                <i data-lucide="user" class="reg-input-icon"></i>
+                                <input type="text" id="regLastName" class="reg-input" placeholder="Nom" required oninput="validateSignUpForm()" />
+                            </div>
+                        </div>
+                        <div class="reg-form-group">
+                            <label class="reg-label" for="regFirstName">Prénom <span class="required-star">*</span></label>
+                            <div class="reg-input-wrapper">
+                                <i data-lucide="user" class="reg-input-icon"></i>
+                                <input type="text" id="regFirstName" class="reg-input" placeholder="Prénom" required oninput="validateSignUpForm()" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row-2">
+                        <div class="reg-form-group">
+                            <label class="reg-label" for="regSignUpEmail">Adresse e-mail <span class="required-star">*</span></label>
+                            <div class="reg-input-wrapper">
+                                <i data-lucide="mail" class="reg-input-icon"></i>
+                                <input type="email" id="regSignUpEmail" class="reg-input" placeholder="nom@entreprise.com" required oninput="validateSignUpForm()" />
+                            </div>
+                        </div>
+                        <div class="reg-form-group">
+                            <label class="reg-label" for="regPhone">Téléphone (WhatsApp) <span class="required-star">*</span></label>
+                            <div class="reg-input-wrapper">
+                                <i data-lucide="phone" class="reg-input-icon"></i>
+                                <input type="tel" id="regPhone" class="reg-input" placeholder="+221 77..." required oninput="validateSignUpForm()" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row-2">
+                        <div class="reg-form-group">
+                            <label class="reg-label" for="regCountry">Pays <span class="required-star">*</span></label>
+                            <div class="reg-input-wrapper">
+                                <i data-lucide="globe" class="reg-input-icon"></i>
+                                <input type="text" id="regCountry" class="reg-input" placeholder="Sénégal, Côte d'Ivoire..." required oninput="validateSignUpForm()" />
+                            </div>
+                        </div>
+                        <div class="reg-form-group">
+                            <label class="reg-label" for="regProfileType">Vous êtes <span class="required-star">*</span></label>
+                            <div class="reg-input-wrapper">
+                                <i data-lucide="briefcase" class="reg-input-icon"></i>
+                                <select id="regProfileType" class="reg-select" required onchange="validateSignUpForm()">
+                                    <option value="" disabled selected>Sélectionnez votre profil</option>
+                                    <option value="entreprise">Entreprise</option>
+                                    <option value="consultant">Consultant</option>
+                                    <option value="administration">Administration publique</option>
+                                    <option value="collectivite">Collectivité territoriale</option>
+                                    <option value="ong">ONG / Association</option>
+                                    <option value="bureau_etudes">Bureau d'études</option>
+                                    <option value="etudiant">Étudiant</option>
+                                    <option value="autre">Autre</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Organisation -->
+                    <div class="form-row-2">
+                        <div class="reg-form-group">
+                            <label class="reg-label" for="regCompany">Nom de l'organisation</label>
+                            <div class="reg-input-wrapper">
+                                <i data-lucide="building" class="reg-input-icon"></i>
+                                <input type="text" id="regCompany" class="reg-input" placeholder="Entreprise ou Ministère" oninput="validateSignUpForm()" />
+                            </div>
+                        </div>
+                        <div class="reg-form-group">
+                            <label class="reg-label" for="regJobTitle">Fonction / Poste</label>
+                            <div class="reg-input-wrapper">
+                                <i data-lucide="user" class="reg-input-icon"></i>
+                                <input type="text" id="regJobTitle" class="reg-input" placeholder="Ex: Directeur Général" oninput="validateSignUpForm()" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sécurité -->
+                    <div class="form-row-2">
+                        <div class="reg-form-group">
+                            <label class="reg-label" for="regPassword">Mot de passe <span class="required-star">*</span></label>
+                            <div class="reg-input-wrapper">
+                                <i data-lucide="lock" class="reg-input-icon"></i>
+                                <input type="password" id="regPassword" class="reg-input" placeholder="••••••••" required oninput="handlePasswordInput(); validateSignUpForm();" />
+                                <button type="button" class="reg-toggle-pwd" onclick="togglePasswordVisibility('regPassword', this)">
+                                    <i data-lucide="eye" class="pwd-eye-icon"></i>
+                                </button>
+                            </div>
+                            <!-- Strength Indicator -->
+                            <div class="pwd-strength-container">
+                                <div class="pwd-strength-bar" id="pwdStrengthBar"></div>
+                                <span class="pwd-strength-text" id="pwdStrengthText">Très faible</span>
+                            </div>
+                        </div>
+                        <div class="reg-form-group">
+                            <label class="reg-label" for="regConfirmPassword">Confirmer le mot de passe <span class="required-star">*</span></label>
+                            <div class="reg-input-wrapper">
+                                <i data-lucide="lock" class="reg-input-icon"></i>
+                                <input type="password" id="regConfirmPassword" class="reg-input" placeholder="••••••••" required oninput="validateSignUpForm()" />
+                                <button type="button" class="reg-toggle-pwd" onclick="togglePasswordVisibility('regConfirmPassword', this)">
+                                    <i data-lucide="eye" class="pwd-eye-icon"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cases à cocher -->
+                    <div class="checkbox-group-container">
+                        <label class="reg-checkbox-label">
+                            <input type="checkbox" id="chkTerms" required onchange="validateSignUpForm()" />
+                            <span class="custom-chk"></span>
+                            J'accepte les <a href="#" class="chk-link" target="_blank">Conditions d'utilisation</a>. <span class="required-star">*</span>
+                        </label>
+                        <label class="reg-checkbox-label">
+                            <input type="checkbox" id="chkPrivacy" required onchange="validateSignUpForm()" />
+                            <span class="custom-chk"></span>
+                            J'accepte la <a href="#" class="chk-link" target="_blank">Politique de confidentialité</a>. <span class="required-star">*</span>
+                        </label>
+                    </div>
+
+                    <button type="button" class="reg-submit-btn gold-btn" id="signUpSubmitBtn" onclick="handleSignUpSubmit()" disabled>Créer mon compte</button>
+
+                    <div class="reg-confirmation error-message hidden" id="signUpError"></div>
+                    <div class="reg-confirmation success-message hidden" id="signUpSuccess"></div>
+                </form>
+
+                <div class="reg-footer-links">
+                    <span>Vous avez déjà un compte ?</span>
+                    <button class="reg-toggle-link" onclick="goToStep('stepForm')">Se connecter</button>
+                </div>
+            </div> <!-- End stepSignUp -->
 
         </div> <!-- End paywall-card-container -->
     </div> <!-- End paywall-overlay -->
