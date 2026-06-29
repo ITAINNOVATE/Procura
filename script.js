@@ -282,6 +282,19 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         const modal = document.getElementById('paywallModal');
         if (modal) modal.classList.remove('hidden');
         lockInput();
+
+        // Bouton retour en haut — apparaît dès que l'utilisateur scroll dans la modale
+        const container = document.getElementById('paywallCardContainer');
+        const backTop   = document.getElementById('paywallBackTop');
+        if (container && backTop) {
+            container.addEventListener('scroll', function onPaywallScroll() {
+                if (container.scrollTop > 200) {
+                    backTop.classList.add('visible');
+                } else {
+                    backTop.classList.remove('visible');
+                }
+            }, { passive: true });
+        }
     }
 
     // --- Supabase Authentication State & Sync ---
@@ -366,6 +379,9 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
         const paywallModal = document.getElementById('paywallModal');
         if (paywallModal) paywallModal.classList.add('hidden');
+        // Masquer le bouton retour en haut quand la modale se ferme
+        const backTop = document.getElementById('paywallBackTop');
+        if (backTop) backTop.classList.remove('visible');
 
         if (hasAccess()) {
             const box = document.getElementById('chatInputBox');
