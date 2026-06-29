@@ -628,7 +628,8 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             } catch (err) {
                 console.error("SignUp error:", err);
                 if (errorEl) {
-                    errorEl.textContent = "Erreur : " + err.message;
+                    const errMsg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+                    errorEl.textContent = "Erreur : " + (errMsg === '{}' ? "Problème de configuration de la base de données. Veuillez vérifier vos triggers ou logs Supabase." : errMsg);
                     errorEl.classList.remove('hidden');
                 }
                 if (submitBtn) {
