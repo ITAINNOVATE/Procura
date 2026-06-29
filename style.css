@@ -157,14 +157,15 @@ body {
 /* ── Africa Map Watermark ───────────────────────────────────────────────── */
 .landing-map-container {
     position: fixed;
-    top: 0;                 /* Tête de l'Afrique au niveau du header / "Besoin d'aide ?" */
-    right: -265px;          /* 30% hors viewport — visible derrière le bouton Envoyer */
-    width: 880px;           /* ~52% plus grand que l'état précédent (580 → 880) */
-    height: 980px;          /* proportionnel, le sud descend sous la barre de recherche */
+    top: -60px;             /* 60px plus haut — tête au niveau "Besoin d'aide ?" */
+    right: -50px;           /* < 5% hors viewport (50/1056 ≈ 4.7%) — carte quasi entière visible */
+    width: 1056px;          /* +20% par rapport à 880px */
+    height: 1176px;         /* proportionnel (+20% de 980px) */
     pointer-events: none;
     z-index: -1;            /* Derrière TOUT le contenu de la page */
-    opacity: 0.07;          /* Filigrane discret — 7% */
-    filter: sepia(30%) saturate(0.3) brightness(0.85);
+    opacity: 0.14;          /* 14% — clairement perceptible sans écraser le design */
+    /* Teinte beige clair #E9DDC8 — pas de flou, pas de halo, pas de dorure */
+    filter: sepia(40%) saturate(0.6) brightness(0.88) contrast(1.05);
 }
 
 .landing-map-img {
@@ -177,11 +178,11 @@ body {
 /* Tablette : légèrement plus petit */
 @media (max-width: 1280px) and (min-width: 769px) {
     .landing-map-container {
-        width: 680px;
-        height: 755px;
-        right: -205px;      /* 30% hors écran sur 680px */
-        top: 0;
-        opacity: 0.07;
+        width: 820px;
+        height: 912px;
+        right: -40px;       /* < 5% hors écran */
+        top: -50px;
+        opacity: 0.12;
     }
 }
 
