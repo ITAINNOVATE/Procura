@@ -157,14 +157,13 @@ body {
 /* ── Africa Map Watermark ───────────────────────────────────────────────── */
 .landing-map-container {
     position: fixed;
-    top: -60px;             /* 60px plus haut — tête au niveau "Besoin d'aide ?" */
-    right: -50px;           /* < 5% hors viewport (50/1056 ≈ 4.7%) — carte quasi entière visible */
-    width: 1056px;          /* +20% par rapport à 880px */
-    height: 1176px;         /* proportionnel (+20% de 980px) */
+    top: -60px;
+    right: 30px;            /* décalée à droite (+80px vs -50px) */
+    width: 950px;           /* légèrement réduite (-10% vs 1056px) */
+    height: 1058px;         /* proportionnel (-10% vs 1176px) */
     pointer-events: none;
-    z-index: -1;            /* Derrière TOUT le contenu de la page */
-    opacity: 0.28;          /* 28% */
-    /* Teinte beige clair #E9DDC8 — pas de flou, pas de halo, pas de dorure */
+    z-index: -1;
+    opacity: 0.28;
     filter: sepia(40%) saturate(0.6) brightness(0.88) contrast(1.05);
 }
 
@@ -178,11 +177,11 @@ body {
 /* Tablette : légèrement plus petit */
 @media (max-width: 1280px) and (min-width: 769px) {
     .landing-map-container {
-        width: 820px;
-        height: 912px;
-        right: -40px;       /* < 5% hors écran */
+        width: 740px;
+        height: 823px;
+        right: 20px;
         top: -50px;
-        opacity: 0.12;
+        opacity: 0.22;
     }
 }
 
