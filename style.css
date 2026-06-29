@@ -53,6 +53,8 @@ body {
     margin: 0 auto;
     padding: 0 2rem;
     width: 100%;
+    position: relative;
+    z-index: 1;
 }
 
 /* HEADER */
@@ -145,38 +147,52 @@ body {
     flex-direction: column;
     justify-content: flex-start;
     align-items: center;
-    padding: 0 0 4rem; /* Reduced top padding to 0 */
-    margin-top: 0; /* Removed top margin */
+    padding: 0 0 4rem;
+    margin-top: 0;
     transition: opacity var(--transition-medium), transform var(--transition-medium);
     position: relative;
     width: 100%;
 }
 
+/* ── Africa Map Watermark ───────────────────────────────────────────────── */
 .landing-map-container {
-    position: absolute;
-    right: 0;
-    top: -50px;
-    width: 320px;
-    height: 380px;
+    position: fixed;
+    top: 40px;              /* Aligned with the top of the hero section */
+    right: -170px;          /* ~30% pushed outside the right viewport edge */
+    width: 580px;
+    height: 650px;
     pointer-events: none;
-    z-index: 0;
-    opacity: 0.8;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    z-index: -1;            /* Behind ALL page content */
+    opacity: 0.08;          /* Subtle watermark: 8% opacity */
+    /* Beige tint (#EDE7DC) via CSS filter – no glow, no gold highlight */
+    filter: sepia(30%) saturate(0.3) brightness(0.85);
 }
 
 .landing-map-img {
     width: 100%;
     height: 100%;
     object-fit: contain;
+    object-position: center;
 }
 
-@media (max-width: 1024px) {
+/* Tablet : légèrement plus petit */
+@media (max-width: 1280px) and (min-width: 769px) {
+    .landing-map-container {
+        width: 460px;
+        height: 520px;
+        right: -140px;
+        top: 30px;
+        opacity: 0.07;
+    }
+}
+
+/* Mobile : complètement masquée */
+@media (max-width: 768px) {
     .landing-map-container {
         display: none;
     }
 }
+
 
 .main-view.fade-out {
     opacity: 0;
@@ -193,6 +209,8 @@ body {
 .hero {
     text-align: center;
     margin-bottom: 3rem;
+    position: relative;
+    z-index: 1;
 }
 
 .hero-title {
