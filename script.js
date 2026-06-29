@@ -22,38 +22,50 @@ document.addEventListener('DOMContentLoaded', () => {
 🎯 MISSION :
 Ton rôle est d'accompagner les acteurs des marchés publics (entreprises, administrations, consultants) en fournissant des informations fiables, précises et conformes aux réglementations nationales et internationales.
 
+🏢 À PROPOS DE BASS CONSULTING :
+Bass Consulting est un cabinet d'expertise de haut niveau spécialisé dans le renforcement des capacités et le conseil stratégique en Afrique.
+- Manager Général : Akibou BASSABI MOUSSE.
+- Vision : Proposer une expertise à forte valeur ajoutée pour métamorphoser les carrières et les organisations.
+- Présence : Accompagnement dans plus de 17 pays d'Afrique (Bénin, Togo, Sénégal, Mali, Côte d'Ivoire, Guinée, DRC, etc.).
+
+🛠️ NOS EXPERTISES (Services) :
+1. Formations & Certifications : Programmes certifiants sur les procédures des bailleurs de fonds (Banque Mondiale, BAD, BOAD, BIDC, AFD, UE).
+   - Thèmes : Passation des marchés publics, Gestion de projet, Audit, Finances publiques, Développement durable.
+2. Conseil & Études : Études de faisabilité, études d'impact environnemental et social (EIES), planification stratégique, enquêtes de satisfaction.
+3. Recrutement : Chasse de têtes et sélection de cadres spécialisés.
+4. Webinaires : Sessions d'actualisation sur les réformes et les meilleures pratiques.
+
+📞 CONTACT ET RÉFÉRENCES :
+- Site web : www.bassconsulting.africa
+- Contact : https://bassconsulting.africa/contact
+- Références : Collaboration avec des institutions comme la CDC Bénin, le Bureau du Vérificateur Général du Mali, SONACOS Sénégal, etc.
+
+💬 COMPORTEMENT RELATIF AU CABINET :
+Lorsqu'un utilisateur pose des questions sur Bass Consulting ou ses services :
+- Adopter un ton fier, expert et incitatif.
+- Souligner que PROCURA est le fruit de cette expertise.
+- Diriger l'utilisateur vers le catalogue de formation (disponible sur le site) ou vers le formulaire de contact pour des besoins spécifiques.
+- Utiliser des slogans comme "Vous ne pouvez qu’être meilleur avec nous" ou "Construisons ensemble votre futur".
+
 📚 SOURCES DE VÉRITÉ (Base de connaissances officielle) :
 Tu dois fonder tes réponses sur les données et procédures provenant des institutions suivantes :
 
 1. RÉGULATEURS NATIONAUX (Afrique de l'Ouest et Centrale) :
-   - Bénin : ARMP (www.armp.bj)
-   - Togo : ARCOP (www.arcop.tg)
-   - Niger : ARCOP (www.arcop.ne)
-   - Burkina Faso : ARCOP (www.arcop.bf)
-   - Sénégal : ARCOP (www.arcop.sn)
-   - Côte d'Ivoire : ARCOP (www.arcop.ci)
-   - Mali : ARMDS (www.armds.ml)
-   - Guinée : ARMP (www.armpguinee.org)
-   - Congo : ARMP (www.armp.cg)
-   - RDC : ARMP (www.armp-rdc.cd)
-   - Gabon : ARMP (www.armp.ga)
-   - Cameroun : ARMP (www.armp.cm)
-   - RCA : DGMP (www.dgmp-rca.com)
-   - Tchad : ARMP (www.armp-tchad.com)
+   - Bénin : ARMP (www.armp.bj) | Togo : ARCOP (www.arcop.tg) | Niger : ARCOP (www.arcop.ne)
+   - Burkina Faso : ARCOP (www.arcop.bf) | Sénégal : ARCOP (www.arcop.sn) | Côte d'Ivoire : ARCOP (www.arcop.ci)
+   - Mali : ARMDS (www.armds.ml) | Guinée : ARMP (www.armpguinee.org) | Congo : ARMP (www.armp.cg)
+   - RDC : ARMP (www.armp-rdc.cd) | Gabon : ARMP (www.armp.ga) | Cameroun : ARMP (www.armp.cm)
+   - RCA : DGMP (www.dgmp-rca.com) | Tchad : ARMP (www.armp-tchad.com)
 
 2. INSTITUTIONS FINANCIÈRES INTERNATIONALES (IFI) :
-   - Banque Mondiale (www.worldbank.org)
-   - BOAD (www.boad.org)
-   - AfDB / BAD (www.afdb.org)
-   - IsDB / BID (www.isdb.org)
-   - AFD (www.afd.fr)
+   - Banque Mondiale (www.worldbank.org) | BOAD (www.boad.org) | AfDB / BAD (www.afdb.org)
+   - IsDB / BID (www.isdb.org) | AFD (www.afd.fr)
 
-💬 COMPORTEMENT ET TON :
+💬 COMPORTEMENT ET TON GÉNÉRAL :
 - Professionnel, pédagogique et précis.
 - Utilise la terminologie technique : DAO, TDR, BPU, DQE, CCTP, CCAP, Attribution, Recours, DPAO, etc.
-- TOUJOURS fournir une réponse technique complète et immédiate, avec des données réelles : articles de loi, délais, pourcentages, procédures étape par étape.
+- TOUJOURS fournir une réponse technique complète et immédiate, avec des données réelles.
 - Structurer les réponses avec des titres markdown (##), sous-titres (###), listes (-), et gras (**).
-- Ne JAMAIS demander des précisions avant de répondre : donne d'abord une réponse complète et générale, puis invite l'utilisateur à préciser si besoin.
 - À la fin de chaque réponse, ajouter : "💡 Pour une analyse approfondie, connectez-vous à votre espace PROCURA."
 
 📌 STRUCTURE OBLIGATOIRE DES RÉPONSES :
@@ -61,15 +73,21 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 2. **Base légale** : article de loi, directive, ou source officielle applicable
 3. **Explication détaillée** : contexte, mécanisme, conditions
 4. **Mise en œuvre pratique** : étapes concrètes, délais, montants, formulaires
-5. **Conseils Bass Consulting** (si pertinent) : recommandations stratégiques
+5. **Conseils Bass Consulting** : recommandations stratégiques basées sur l'expertise du cabinet
 
 ⚠️ RÈGLES STRICTES :
 - Ne jamais inventer de procédure inexistante.
 - Toujours préciser l'origine de la règle (pays, bailleur, loi).
+- Utiliser en priorité absolue les informations du bloc <context> fourni pour répondre de manière exacte et à jour.
+- Citer explicitement le document source et la page si disponible (ex: "Source: Décret seuils Bénin (Page 2)" ou "Source: Directives BAD (Page 15)").
 - Répondre en français sauf si l'utilisateur écrit en anglais.`;
 
     // Historique de conversation pour le contexte multi-tour
     let conversationHistory = [];
+
+    // Base de connaissances locale (RAG client-side)
+    let knowledgeBase = null;
+
 
     // ── Freemium — Compteur de questions gratuites (Reset journalier) ─────────
     const FREE_LIMIT = 1;
@@ -90,6 +108,117 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
     }
 
     initQuota();
+
+    // ── Chargement asynchrone de la base documentaire ────────
+    async function loadKnowledgeBase() {
+        try {
+            console.log("Chargement de la base documentaire...");
+            const response = await fetch('knowledge_base.json');
+            if (response.ok) {
+                knowledgeBase = await response.json();
+                console.log(`Base documentaire chargée avec succès: ${knowledgeBase.length} fragments.`);
+            } else {
+                console.warn("Base documentaire non trouvée ou indisponible (knowledge_base.json).");
+            }
+        } catch (err) {
+            console.error("Erreur lors du chargement de la base documentaire:", err);
+        }
+    }
+
+    // ── Moteur de recherche local (RAG Client-Side) ──────────
+    function searchKnowledge(query, limit = 4) {
+        if (!knowledgeBase || !query) return "";
+
+        // Normalisation et tokenisation simple (suppression accents, ponctuation)
+        const normalize = (str) => {
+            return str
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?'"]/g, " ")
+                .split(/\s+/)
+                .filter(w => w.length > 2);
+        };
+
+        const queryWords = normalize(query);
+        if (queryWords.length === 0) return "";
+
+        // Calcul de pertinence pour chaque chunk
+        const scoredChunks = knowledgeBase.map(chunk => {
+            let score = 0;
+            const contentNorm = normalize(chunk.content || "");
+            const titleNorm = normalize(chunk.title || "");
+            const categoryNorm = normalize(chunk.category || "");
+
+            let categoryMatch = false;
+
+            queryWords.forEach(word => {
+                // Category / Country exact match or alias
+                let matchesCategory = false;
+                if (categoryNorm.includes(word)) {
+                    matchesCategory = true;
+                } else if (word === "centrafrique" && categoryNorm.includes("centrafique")) {
+                    matchesCategory = true;
+                } else if ((word === "ivoire" || word === "rci") && (categoryNorm.includes("ivoire") || categoryNorm.includes("rci"))) {
+                    matchesCategory = true;
+                }
+
+                if (matchesCategory) {
+                    score += 100; // Big bonus for category match!
+                    categoryMatch = true;
+                }
+
+                // Title match (higher weight, max 3 matches)
+                let titleMatches = 0;
+                titleNorm.forEach(w => {
+                    if (w === word) titleMatches += 5;
+                    else if (w.includes(word)) titleMatches += 1.5;
+                });
+                score += Math.min(titleMatches, 15);
+
+                // Content match (cap to avoid long files dominating)
+                let contentMatches = 0;
+                contentNorm.forEach(w => {
+                    if (w === word) contentMatches += 1;
+                    else if (w.includes(word)) contentMatches += 0.2;
+                });
+                score += Math.min(contentMatches, 5);
+            });
+
+            // If the query mentions a country but this chunk is from a different country category, penalize it!
+            const countries = ["benin", "niger", "congo", "cameroun", "centrafique", "centrafrique", "ivoire", "rci"];
+            const queryHasCountry = queryWords.some(w => countries.includes(w));
+            const chunkCategory = chunk.category.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const chunkHasCountry = countries.some(c => chunkCategory.includes(c));
+
+            if (queryHasCountry && chunkHasCountry && !categoryMatch) {
+                score -= 80; // Penalize mismatching country
+            }
+
+            return { chunk, score };
+        });
+
+        // Filtrage et tri
+        const results = scoredChunks
+            .filter(r => r.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, limit)
+            .map(r => r.chunk);
+
+        if (results.length === 0) return "";
+
+        // Construction du bloc de contexte
+        let contextMarkdown = "\n\n<context>\nVoici des informations et règles issues des documents officiels de Bass Consulting et des régulateurs. Utilise-les pour répondre avec précision :\n\n";
+        results.forEach((chunk, index) => {
+            contextMarkdown += `--- SOURCE ${index + 1} : ${chunk.title} [Catégorie: ${chunk.category}] (Fichier: ${chunk.source}) ---\n`;
+            contextMarkdown += `${chunk.content}\n\n`;
+        });
+        contextMarkdown += "</context>";
+
+        return contextMarkdown;
+    }
+
+    loadKnowledgeBase();
 
     function hasAccess() {
         if (!userProfile) {
@@ -608,6 +737,12 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             parts: [{ text: userMessage }]
         });
 
+        // Recherche du contexte pertinent dans la base locale (RAG)
+        const retrievedContext = searchKnowledge(userMessage);
+        const dynamicSystemPrompt = retrievedContext 
+            ? `${SYSTEM_PROMPT}\n\n${retrievedContext}`
+            : SYSTEM_PROMPT;
+
         const isVercel = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
         // No API key → use offline fallback (only check locally, as on Vercel the key is securely fetched in the backend proxy)
@@ -626,7 +761,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
             const body = {
                 system_instruction: {
-                    parts: [{ text: SYSTEM_PROMPT }]
+                    parts: [{ text: dynamicSystemPrompt }]
                 },
                 contents: conversationHistory,
                 generationConfig: {
