@@ -144,7 +144,7 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    align-items: flex-start;
+    align-items: center;
     padding: 0 0 4rem; /* Reduced top padding to 0 */
     margin-top: 0; /* Removed top margin */
     transition: opacity var(--transition-medium), transform var(--transition-medium);
@@ -166,9 +166,10 @@ body {
     justify-content: center;
 }
 
-.landing-map-container svg {
+.landing-map-img {
     width: 100%;
     height: 100%;
+    object-fit: contain;
 }
 
 @media (max-width: 1024px) {
