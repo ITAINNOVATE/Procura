@@ -279,20 +279,18 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
     }
 
     function showPaywall() {
-        const modal   = document.getElementById('paywallModal');
+        const modal = document.getElementById('paywallModal');
         const backTop = document.getElementById('paywallBackTop');
         if (modal) {
             modal.classList.remove('hidden');
-            // Remettre en haut à chaque ouverture
             modal.scrollTop = 0;
         }
         if (backTop) backTop.classList.remove('visible');
         lockInput();
-
-        // Réinitialiser les icônes Lucide (le bouton vient d'être affiché)
+        // Rafraîchir les icônes Lucide pour que la flèche retour s'affiche
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
-        // Bouton retour en haut — s'affiche dès 200px de scroll dans l'overlay
+        // Écouteur pour afficher le bouton retour en haut au scroll
         if (modal && backTop) {
             modal.addEventListener('scroll', function () {
                 if (modal.scrollTop > 200) {
@@ -386,7 +384,6 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
         const paywallModal = document.getElementById('paywallModal');
         if (paywallModal) paywallModal.classList.add('hidden');
-        // Masquer le bouton retour en haut quand la modale se ferme
         const backTop = document.getElementById('paywallBackTop');
         if (backTop) backTop.classList.remove('visible');
 

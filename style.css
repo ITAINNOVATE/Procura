@@ -806,6 +806,42 @@ textarea::placeholder {
     position: relative;
 }
 
+/* ── Flèche Retour (navigation page tarifs → page principale) ───────────── */
+.paywall-back-btn {
+    position: sticky;
+    top: 0;
+    left: 0;
+    align-self: flex-start;       /* reste collé en haut à gauche dans l'overlay flex */
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--color-navy);
+    color: white;
+    border: none;
+    border-radius: 999px;
+    padding: 0.65rem 1.25rem 0.65rem 1rem;
+    font-size: 0.95rem;
+    font-family: var(--font-body);
+    font-weight: 600;
+    cursor: pointer;
+    z-index: 1100;
+    box-shadow: 0 4px 14px rgba(11, 30, 64, 0.25);
+    transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    margin-bottom: 1.5rem;        /* espace sous la flèche avant la card */
+    flex-shrink: 0;
+}
+
+.paywall-back-btn:hover {
+    background: var(--color-gold);
+    transform: translateX(-3px);
+    box-shadow: 0 6px 20px rgba(194, 149, 67, 0.3);
+}
+
+.paywall-back-btn i {
+    width: 20px;
+    height: 20px;
+}
+
 /* ── Bouton retour en haut (modale tarifs) ─────────────────────────────── */
 .paywall-back-top {
     position: fixed;
@@ -844,6 +880,7 @@ textarea::placeholder {
     width: 22px;
     height: 22px;
 }
+
 
 .paywall-card {
     background: white;

@@ -141,7 +141,13 @@
         <!-- PAYWALL MODAL -->
         <div class="paywall-overlay hidden" id="paywallModal">
 
-            <!-- Bouton retour en haut — à l'intérieur de l'overlay pour que position:fixed fonctionne -->
+            <!-- Flèche retour — toujours visible en haut à gauche -->
+            <button class="paywall-back-btn" id="paywallBackBtn" title="Retour" onclick="document.getElementById('paywallModal').classList.add('hidden')">
+                <i data-lucide="arrow-left"></i>
+                <span>Retour</span>
+            </button>
+
+            <!-- Bouton retour en haut -->
             <button class="paywall-back-top" id="paywallBackTop" title="Retour en haut"
                 onclick="document.getElementById('paywallModal').scrollTo({top:0,behavior:'smooth'})">
                 <i data-lucide="chevron-up"></i>
