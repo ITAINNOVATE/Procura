@@ -302,9 +302,11 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         }
     }
 
-    // --- Supabase Authentication State & Sync ---
     async function initAuth() {
-        if (!supabase) return;
+        if (!supabase) {
+            updateUIForLoggedOut();
+            return;
+        }
 
         supabase.auth.onAuthStateChange(async (event, session) => {
             if (session) {
@@ -387,6 +389,10 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         const backTop = document.getElementById('paywallBackTop');
         if (backTop) backTop.classList.remove('visible');
 
+        // Afficher le bouton Retour pour les utilisateurs connectés
+        const backBtn = document.getElementById('paywallBackBtn');
+        if (backBtn) backBtn.classList.remove('hidden');
+
         if (hasAccess()) {
             const box = document.getElementById('chatInputBox');
             const input = document.getElementById('chatInput');
@@ -407,6 +413,14 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         if (userProfileEl) userProfileEl.classList.add('hidden');
 
         updateCounter();
+
+        // Cacher le bouton Retour pour forcer l'authentification (impossible de fermer la modale)
+        const backBtn = document.getElementById('paywallBackBtn');
+        if (backBtn) backBtn.classList.add('hidden');
+
+        // Ouvrir automatiquement la modale d'inscription premium
+        showPaywall();
+        goToStep('stepSignUp');
     }
 
     function getPlanLabel(plan) {
