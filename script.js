@@ -583,6 +583,11 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             submitBtn.disabled = true;
             submitBtn.textContent = "Création en cours...";
         }
+
+        // Mappage de la valeur du profil pour satisfaire la contrainte CHECK (profiles_profile_type_check)
+        // La base de données n'autorise que 'agent' ou 'operateur'.
+        const agentTypes = ['administration', 'collectivite'];
+        const dbProfileType = agentTypes.includes(profileType) ? 'agent' : 'operateur';
         
         if (supabase) {
             try {
@@ -595,7 +600,8 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                             last_name: lastName,
                             phone: phone,
                             country: country,
-                            profile_type: profileType,
+                            profile_type: dbProfileType,       /* 'agent' ou 'operateur' pour le trigger DB */
+                            detailed_profile: profileType,     /* valeur détaillée sélectionnée */
                             company_name: companyName,
                             job_title: jobTitle,
                             plan: selectedPlan || 'free'
@@ -618,7 +624,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                             id: data.user.id,
                             email: email,
                             plan: selectedPlan || 'free',
-                            profile_type: profileType
+                            profile_type: dbProfileType
                         }]);
                     } catch (pErr) {
                         console.warn("Profiles insert fallback:", pErr);
