@@ -611,12 +611,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 
                 if (error) throw error;
                 
-                if (successEl) {
-                    successEl.textContent = "✅ Compte créé avec succès ! Un lien d'accès a été envoyé. Si besoin, vous pouvez également vous connecter directement.";
-                    successEl.classList.remove('hidden');
-                }
-                
-                // Si l'utilisateur est connecté automatiquement
+                // Si le compte est créé, on connecte directement l'utilisateur
                 if (data && data.user) {
                     currentUser = data.user;
                     try {
@@ -629,6 +624,14 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                     } catch (pErr) {
                         console.warn("Profiles insert fallback:", pErr);
                     }
+
+                    // Synchronisation et connexion immédiate de l'utilisateur sur la page
+                    await syncUserProfile();
+                    updateUIForLoggedIn();
+                    
+                    const modal = document.getElementById('paywallModal');
+                    if (modal) modal.classList.add('hidden');
+                    return;
                 }
                 
             } catch (err) {
