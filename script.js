@@ -703,7 +703,16 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             } catch (err) {
                 console.error("SignIn error:", err);
                 if (errorEl) {
-                    errorEl.textContent = "Erreur : " + err.message;
+                    let detailMsg = "";
+                    if (err && typeof err === 'object') {
+                        const allKeys = Object.getOwnPropertyNames(err);
+                        const errObj = {};
+                        allKeys.forEach(k => { errObj[k] = err[k]; });
+                        detailMsg = err.message || err.error_description || err.description || JSON.stringify(errObj);
+                    } else {
+                        detailMsg = String(err);
+                    }
+                    errorEl.textContent = "Erreur : " + detailMsg;
                     errorEl.classList.remove('hidden');
                 }
                 if (submitBtn) {
