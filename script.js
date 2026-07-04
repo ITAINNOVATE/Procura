@@ -284,8 +284,20 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         if (modal) {
             modal.classList.remove('hidden');
             modal.scrollTop = 0;
+
+            // Si l'utilisateur est connecté, on lui montre directement la page des plans.
+            // S'il n'est pas connecté, on lui montre le formulaire d'inscription.
+            if (currentUser) {
+                goToStep('stepPlans');
+                const backBtn = document.getElementById('paywallBackBtn');
+                if (backBtn) backBtn.classList.remove('hidden');
+            } else {
+                goToStep('stepSignUp');
+                const backBtn = document.getElementById('paywallBackBtn');
+                if (backBtn) backBtn.classList.add('hidden');
+            }
         }
-        if (backTop) backTop.classList.remove('visible');
+        if (backTop) backTop.classList.add('visible');
         lockInput();
         // Rafraîchir les icônes Lucide pour que la flèche retour s'affiche
         if (typeof lucide !== 'undefined') lucide.createIcons();
