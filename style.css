@@ -1741,4 +1741,40 @@ textarea::placeholder {
 .reg-logo-img {
     height: 75px;
     object-fit: contain;
+}
+
+/* ── Bouton lumineux / clignotant "Choisissez un plan" ────────────────── */
+.choose-plan-trigger {
+    color: var(--color-gold);
+    cursor: pointer;
+    text-decoration: underline;
+    display: inline-block;
+    padding: 0 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    transition: background-color 0.2s, color 0.2s;
+    animation: trigger-pulse-glow 2s infinite ease-in-out;
+}
+
+.choose-plan-trigger:hover {
+    color: white !important;
+    background-color: var(--color-gold);
+    text-decoration: none;
+    box-shadow: 0 0 10px rgba(194, 149, 67, 0.6);
+}
+
+@keyframes trigger-pulse-glow {
+    0% {
+        text-shadow: 0 0 2px rgba(194, 149, 67, 0.3);
+        opacity: 0.9;
+    }
+    50% {
+        text-shadow: 0 0 8px rgba(194, 149, 67, 0.9), 0 0 15px rgba(194, 149, 67, 0.4);
+        opacity: 1;
+        color: #e5b358;
+    }
+    100% {
+        text-shadow: 0 0 2px rgba(194, 149, 67, 0.3);
+        opacity: 0.9;
+    }
 }

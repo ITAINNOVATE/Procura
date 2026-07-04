@@ -260,7 +260,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         const remaining = Math.max(0, limit - questionsUsed);
 
         if (remaining === 0) {
-            counterText.innerHTML = '🔒 Quota gratuit épuisé — <strong>Choisissez un plan</strong> pour continuer';
+            counterText.innerHTML = '🔒 Quota gratuit épuisé — <strong class="choose-plan-trigger" onclick="window.goToStep(\'stepPlans\'); document.getElementById(\'paywallModal\').classList.remove(\'hidden\');">Choisissez un plan</strong> pour continuer';
             counterEl.classList.add('counter-exhausted');
         } else {
             const color = remaining === 1 ? '#e55' : 'var(--color-gold)';
