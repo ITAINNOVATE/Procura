@@ -250,7 +250,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             plan = userProfile.plan || 'free';
             if (plan === 'monthly' || plan === 'annual') {
                 counterText.innerHTML = `🌟 <strong>Plan ${plan === 'monthly' ? 'Mensuel' : 'Annuel'}</strong> — Questions illimitées`;
-                counterEl.classList.remove('counter-exhausted');
+                if (counterEl) counterEl.classList.remove('counter-exhausted');
                 return;
             }
             if (plan === 'weekly') limit = 20;
@@ -261,11 +261,11 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
         if (remaining === 0) {
             counterText.innerHTML = '🔒 Quota gratuit épuisé — <strong class="choose-plan-trigger" onclick="window.goToStep(\'stepPlans\'); document.getElementById(\'paywallModal\').classList.remove(\'hidden\');">Choisissez un plan</strong> pour continuer';
-            counterEl.classList.add('counter-exhausted');
+            if (counterEl) counterEl.classList.add('counter-exhausted');
         } else {
             const color = remaining === 1 ? '#e55' : 'var(--color-gold)';
             counterText.innerHTML = `💡 <strong style="color:${color}">${remaining} question${remaining > 1 ? 's' : ''} ${plan === 'free' ? 'gratuite' : 'restante'}${remaining > 1 ? 's' : ''}</strong> restante${remaining > 1 ? 's' : ''}`;
-            counterEl.classList.remove('counter-exhausted');
+            if (counterEl) counterEl.classList.remove('counter-exhausted');
         }
     }
 
@@ -692,6 +692,10 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 });
                 
                 if (error) throw error;
+
+                if (!data || !data.user) {
+                    throw new Error("Impossible de récupérer les informations de l'utilisateur.");
+                }
                 
                 currentUser = data.user;
                 await syncUserProfile();
