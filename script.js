@@ -626,23 +626,29 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 // Si le compte est créé, on connecte directement l'utilisateur
                 if (data && data.user) {
                     currentUser = data.user;
-                    try {
-                        await supabase.from('profiles').insert([{
-                            id: data.user.id,
-                            email: email,
-                            plan: selectedPlan || 'free',
-                            profile_type: dbProfileType
-                        }]);
-                    } catch (pErr) {
-                        console.warn("Profiles insert fallback:", pErr);
-                    }
-
-                    // Synchronisation et connexion immédiate de l'utilisateur sur la page
-                    await syncUserProfile();
-                    updateUIForLoggedIn();
                     
+                    // Fermeture instantanée de la modale pour une sensation de réactivité immédiate
                     const modal = document.getElementById('paywallModal');
                     if (modal) modal.classList.add('hidden');
+                    
+                    updateUIForLoggedIn();
+
+                    // Insérer et synchroniser le profil en arrière-plan
+                    (async () => {
+                        try {
+                            await supabase.from('profiles').insert([{
+                                id: data.user.id,
+                                email: email,
+                                plan: selectedPlan || 'free',
+                                profile_type: dbProfileType
+                            }]);
+                        } catch (pErr) {
+                            console.warn("Profiles insert fallback:", pErr);
+                        }
+                        await syncUserProfile();
+                        updateUIForLoggedIn();
+                    })();
+                    
                     return;
                 }
                 
@@ -710,11 +716,17 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 }
                 
                 currentUser = data.user;
-                await syncUserProfile();
-                updateUIForLoggedIn();
                 
+                // Fermeture instantanée de la modale pour une sensation de réactivité immédiate
                 const modal = document.getElementById('paywallModal');
                 if (modal) modal.classList.add('hidden');
+                
+                updateUIForLoggedIn();
+                
+                // Synchroniser le profil en arrière-plan sans bloquer
+                syncUserProfile().then(() => {
+                    updateUIForLoggedIn(); // Rafraîchir les badges avec le plan réel une fois chargé
+                });
                 
             } catch (err) {
                 console.error("SignIn error:", err);
@@ -835,6 +847,17 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
     mainInput.addEventListener('keydown', (e) => handleEnter(e, mainInput, startChat, true));
     chatInput.addEventListener('keydown', (e) => handleEnter(e, chatInput, continueChat, false));
+
+    // --- Soumettre sur la touche Entrée ---
+    const loginEmail = document.getElementById('loginEmail');
+    const loginPassword = document.getElementById('loginPassword');
+    if (loginEmail) loginEmail.addEventListener('keydown', (e) => { if (e.key === 'Enter') window.handleSignIn(); });
+    if (loginPassword) loginPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') window.handleSignIn(); });
+
+    const regPassword = document.getElementById('regPassword');
+    const regConfirmPassword = document.getElementById('regConfirmPassword');
+    if (regPassword) regPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') window.handleSignUpSubmit(); });
+    if (regConfirmPassword) regConfirmPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') window.handleSignUpSubmit(); });
 
     sendBtn.addEventListener('click', () => {
         if (mainInput.value.trim()) startChat(mainInput.value);
