@@ -1,4 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Global Error Diagnostic ---
+    window.onerror = function(message, source, lineno, colno, error) {
+        console.error("Global captured error:", error);
+        // Format for readability
+        const cleanSource = source ? source.substring(source.lastIndexOf('/') + 1) : 'inconnu';
+        alert("⚠️ [PROCURA AI - Diagnostique] " + message + "\nFichier : " + cleanSource + " (Ligne " + lineno + ")");
+        return false;
+    };
 
     // ══════════════════════════════════════════════════════════
     //  CONFIGURATION — Remplacez par votre clé API Gemini
@@ -701,6 +709,20 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             submitBtn.disabled = true;
             submitBtn.textContent = "Connexion...";
         }
+
+        let isResolved = false;
+        const timeoutId = setTimeout(() => {
+            if (!isResolved) {
+                if (errorEl) {
+                    errorEl.textContent = "⚠️ La connexion prend anormalement du temps. Si vous utilisez Brave, un bloqueur de publicité (AdBlock) ou un pare-feu, veuillez le désactiver temporairement pour ce site.";
+                    errorEl.classList.remove('hidden');
+                }
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Se connecter";
+                }
+            }
+        }, 6000); // 6 secondes de timeout
         
         if (supabase) {
             try {
@@ -708,6 +730,9 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                     email: email,
                     password: password
                 });
+                
+                isResolved = true;
+                clearTimeout(timeoutId);
                 
                 if (error) throw error;
 
@@ -729,6 +754,8 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 });
                 
             } catch (err) {
+                isResolved = true;
+                clearTimeout(timeoutId);
                 console.error("SignIn error:", err);
                 if (errorEl) {
                     let detailMsg = "";
@@ -749,6 +776,8 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 }
             }
         } else {
+            isResolved = true;
+            clearTimeout(timeoutId);
             currentUser = { email: email, id: 'mock-user-123' };
             updateUIForLoggedIn();
             const modal = document.getElementById('paywallModal');
