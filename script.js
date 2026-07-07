@@ -393,7 +393,13 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
         if (guestActions) guestActions.classList.add('hidden');
         if (userProfileEl) userProfileEl.classList.remove('hidden');
-        if (userEmailEl) userEmailEl.textContent = currentUser.email;
+        if (userEmailEl) {
+            const firstName = (currentUser.user_metadata && currentUser.user_metadata.first_name) 
+                ? currentUser.user_metadata.first_name 
+                : currentUser.email.split('@')[0];
+            const capitalizedName = firstName.charAt(0).toUpperCase() + firstName.slice(1);
+            userEmailEl.textContent = `Bienvenue, ${capitalizedName}`;
+        }
         
         if (userPlanBadgeEl) {
             const plan = userProfile ? (userProfile.plan || 'free') : 'free';
