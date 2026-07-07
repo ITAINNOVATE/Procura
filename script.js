@@ -617,10 +617,14 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         
         if (supabase) {
             try {
-                const { data, error } = await supabase.auth.signUp({
-                    email: email,
-                    password: password,
-                    options: {
+                // Appel sécurisé via le proxy API pour contourner les blocages AdBlock / Antivirus
+                const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'signup',
+                        email,
+                        password,
                         data: {
                             first_name: firstName,
                             last_name: lastName,
@@ -632,7 +636,19 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                             job_title: jobTitle,
                             plan: selectedPlan || 'free'
                         }
-                    }
+                    })
+                });
+
+                const authResult = await res.json();
+
+                if (authResult.error || authResult.msg) {
+                    throw new Error(authResult.error_description || authResult.msg || authResult.error || "Erreur lors de l'inscription");
+                }
+
+                // Charger la session dans le client Supabase (connexion immédiate)
+                const { data, error } = await supabase.auth.setSession({
+                    access_token: authResult.access_token,
+                    refresh_token: authResult.refresh_token
                 });
                 
                 if (error) throw error;
@@ -732,13 +748,27 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         
         if (supabase) {
             try {
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email: email,
-                    password: password
+                // Appel sécurisé via le proxy API pour contourner les blocages AdBlock / Antivirus
+                const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'login', email, password })
                 });
-                
+
+                const authResult = await res.json();
+
                 isResolved = true;
                 clearTimeout(timeoutId);
+
+                if (authResult.error || authResult.msg) {
+                    throw new Error(authResult.error_description || authResult.msg || authResult.error || "Identifiants invalides ou problème de connexion");
+                }
+
+                // Charger la session dans le client Supabase
+                const { data, error } = await supabase.auth.setSession({
+                    access_token: authResult.access_token,
+                    refresh_token: authResult.refresh_token
+                });
                 
                 if (error) throw error;
 
