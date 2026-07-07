@@ -752,12 +752,8 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 const modal = document.getElementById('paywallModal');
                 if (modal) modal.classList.add('hidden');
                 
-                updateUIForLoggedIn();
-                
-                // Synchroniser le profil en arrière-plan sans bloquer
-                syncUserProfile().then(() => {
-                    updateUIForLoggedIn(); // Rafraîchir les badges avec le plan réel une fois chargé
-                });
+                // Note : Pas besoin d'appeler syncUserProfile() ou updateUIForLoggedIn() ici,
+                // car l'événement onAuthStateChange s'active automatiquement à la connexion et s'en charge.
                 
             } catch (err) {
                 isResolved = true;
