@@ -1448,24 +1448,50 @@ textarea::placeholder {
 }
 
 @media (max-width: 768px) {
-    .header { flex-direction: column; gap: 1rem; }
-    .hero-title { font-size: 3rem; }
-    .hero-subtitle { font-size: 1.2rem; }
-    .features { grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
-    .footer { flex-direction: column; gap: 1rem; text-align: center; }
+    .app-container { padding: 0 1rem; }
+    .header { flex-direction: column; gap: 0.75rem; text-align: center; padding: 0.75rem 0; }
+    .logo-img { height: 60px; }
+    .header-actions { width: 100%; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+    .auth-btn, .help-btn { padding: 0.5rem 1rem; font-size: 0.85rem; }
+    
+    .user-info { display: flex; flex-direction: row; gap: 0.5rem; align-items: center; }
+    .user-email { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem; }
+
+    .hero-title { font-size: 2.75rem; }
+    .hero-subtitle { font-size: 1.15rem; }
+    .features { grid-template-columns: repeat(2, 1fr); gap: 1.25rem; margin-top: 2.5rem; }
+    .footer { flex-direction: column; gap: 0.75rem; text-align: center; }
     .message { max-width: 95%; }
     .reg-step { padding: 1.75rem 1.25rem; }
     
-    .paywall-grid { grid-template-columns: 1fr; }
-    .paywall-card { padding: 2rem 1.5rem; }
-    .paywall-main-header h1 { font-size: 1.8rem; }
-    .warning-banner { flex-direction: column; text-align: center; gap: 1rem; }
+    /* Input box polish */
+    .input-box { border-radius: 0.75rem; }
+    textarea { font-size: 1rem; padding: 0.6rem 0.8rem; }
+    
+    /* Paywall responsiveness */
+    .paywall-overlay { padding: 1rem 0.5rem; }
+    .paywall-card-container { padding: 0 0.5rem; }
+    .paywall-back-btn { margin-bottom: 1rem; font-size: 0.85rem; padding: 0.5rem 1rem; }
+    .paywall-grid { grid-template-columns: 1fr; gap: 1rem; }
+    .plan-card-v2 { padding: 1.5rem 1rem; }
+    .plan-icon { width: 44px; height: 44px; margin-bottom: 1rem; }
+    .plan-icon i { width: 22px; height: 22px; }
+    .plan-price-v2 { font-size: 1.25rem; }
+    .paywall-card { padding: 1.75rem 1rem; }
+    .paywall-main-header h1 { font-size: 1.6rem; }
+    .warning-banner { flex-direction: column; text-align: center; gap: 0.75rem; }
 }
 
 @media (max-width: 480px) {
+    .app-container { padding: 0 0.75rem; }
     .features { grid-template-columns: 1fr; }
     .footer-links { flex-wrap: wrap; justify-content: center; }
     .trust-bar { grid-template-columns: 1fr; }
+    
+    /* Suggestions stacking for thumb-friendly tapping */
+    .suggestions { flex-direction: column; align-items: stretch; }
+    .suggestion-btn { width: 100%; justify-content: flex-start; }
+    .user-email { max-width: 95px; }
 }
 
 /* ══════════════════════════════════════════════════════════
