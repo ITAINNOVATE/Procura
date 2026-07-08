@@ -29,11 +29,20 @@ export default async function handler(req) {
     // Construct target URL
     const targetUrl = new URL(path + url.search, SUPABASE_TARGET_URL).toString();
 
-    // Prepare headers
+    // Prepare headers - only forward safe and standard headers to avoid CDN/WAF blockages (like spoofed CF/Vercel headers)
     const headers = new Headers();
+    const allowedHeaders = [
+      'content-type',
+      'apikey',
+      'authorization',
+      'prefer',
+      'range',
+      'accept',
+      'user-agent'
+    ];
     for (const [key, value] of req.headers.entries()) {
-      // Don't forward host header to prevent SSL mismatches
-      if (key.toLowerCase() !== 'host') {
+      const lowerKey = key.toLowerCase();
+      if (allowedHeaders.includes(lowerKey)) {
         headers.set(key, value);
       }
     }
