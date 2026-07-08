@@ -47,6 +47,15 @@ export default async function handler(req) {
       }
     }
 
+    // Force/inject API key headers if missing in the incoming request
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
+    if (!headers.has('apikey')) {
+      headers.set('apikey', supabaseKey);
+    }
+    if (!headers.has('authorization')) {
+      headers.set('authorization', `Bearer ${supabaseKey}`);
+    }
+
     // Read body if method has one (arrayBuffer resolves without stream hangs in Vercel Edge functions)
     let body = null;
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {

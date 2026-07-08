@@ -21,9 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const isLocalhost = window.location.hostname === 'localhost' || 
                         window.location.hostname === '127.0.0.1' || 
                         window.location.protocol === 'file:';
-    const SUPABASE_URL = isLocalhost 
-        ? ((window.CONFIG && window.CONFIG.SUPABASE_URL) || 'https://yhutkoevddnydlvoqeqj.supabase.co') 
-        : window.location.origin + '/api/supabase';
+    const SUPABASE_URL = (window.CONFIG && window.CONFIG.SUPABASE_URL) || 'https://yhutkoevddnydlvoqeqj.supabase.co';
     const SUPABASE_ANON_KEY = (window.CONFIG && window.CONFIG.SUPABASE_ANON_KEY) || 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
 
     const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
