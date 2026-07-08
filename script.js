@@ -22,9 +22,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.location.hostname === '127.0.0.1' || 
                         window.location.protocol === 'file:';
     const SUPABASE_URL = isLocalhost 
-        ? 'https://yhutkoevddnydlvoqeqj.supabase.co' 
+        ? ((window.CONFIG && window.CONFIG.SUPABASE_URL) || 'https://yhutkoevddnydlvoqeqj.supabase.co') 
         : window.location.origin + '/api/supabase';
-    const SUPABASE_ANON_KEY = 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
+    const SUPABASE_ANON_KEY = (window.CONFIG && window.CONFIG.SUPABASE_ANON_KEY) || 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
 
     // Intercepteur de requêtes pour masquer les signatures de Supabase aux antivirus agressifs (comme HP Wolf)
     const customFetch = async (url, options = {}) => {

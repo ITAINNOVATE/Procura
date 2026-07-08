@@ -4,7 +4,7 @@ export const config = {
   runtime: 'edge',
 };
 
-const SUPABASE_TARGET_URL = 'https://yhutkoevddnydlvoqeqj.supabase.co';
+const SUPABASE_TARGET_URL = process.env.SUPABASE_URL || 'https://yhutkoevddnydlvoqeqj.supabase.co';
 
 export default async function handler(req) {
   // CORS Preflight
