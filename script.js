@@ -840,6 +840,42 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             submitBtn.textContent = "Connexion...";
         }
 
+        const runDiagnostics = async () => {
+            const diagEl = document.getElementById('loginDiag');
+            if (!diagEl) return;
+            diagEl.style.display = 'block';
+            diagEl.textContent = "🔍 Diagnostic Réseau :\n";
+
+            try {
+                diagEl.textContent += `- Protocole: ${window.location.protocol}\n`;
+                diagEl.textContent += `- Hostname: ${window.location.hostname}\n`;
+                diagEl.textContent += `- Mode Local: ${isLocalhost}\n`;
+                diagEl.textContent += `- SUPABASE_URL: ${SUPABASE_URL}\n`;
+
+                diagEl.textContent += `- Appel test vers le proxy... `;
+                const start = Date.now();
+                const res = await fetch(SUPABASE_URL + '/auth/v1/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const duration = Date.now() - start;
+                
+                diagEl.textContent += `Réponse en ${duration}ms\n`;
+                diagEl.textContent += `- Statut HTTP: ${res.status} ${res.statusText}\n`;
+                
+                const headersObj = {};
+                res.headers.forEach((val, key) => { headersObj[key] = val; });
+                diagEl.textContent += `- En-têtes: ${JSON.stringify(headersObj, null, 2)}\n`;
+
+                const text = await res.text();
+                diagEl.textContent += `- Corps (200 car.): ${text.substring(0, 200)}\n`;
+                
+            } catch (diagErr) {
+                diagEl.textContent += `ÉCHEC ❌\n- Erreur: ${diagErr.message || diagErr}\n`;
+            }
+        };
+
         let isResolved = false;
         const timeoutId = setTimeout(() => {
             if (!isResolved) {
@@ -851,6 +887,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                     submitBtn.disabled = false;
                     submitBtn.textContent = "Se connecter";
                 }
+                runDiagnostics();
             }
         }, 6000); // 6 secondes de timeout
         
@@ -906,6 +943,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                     submitBtn.disabled = false;
                     submitBtn.textContent = "Se connecter";
                 }
+                runDiagnostics();
             }
         } else {
             isResolved = true;
