@@ -47,11 +47,8 @@ export default async function handler(req) {
       }
     }
 
-    // Read body if method has one
-    let body = null;
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
-      body = await req.arrayBuffer();
-    }
+    // Stream the body directly to avoid memory buffering hangs
+    const body = ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? null : req.body;
 
     // Forward request to Supabase
     const response = await fetch(targetUrl, {
