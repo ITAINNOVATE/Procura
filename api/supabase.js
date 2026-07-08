@@ -24,7 +24,16 @@ export default async function handler(req) {
     const url = new URL(req.url);
     // Extract the path after /api/supabase
     // e.g. /api/supabase/auth/v1/token -> /auth/v1/token
-    const path = url.pathname.replace(/^\/api\/supabase/, '');
+    let path = url.pathname.replace(/^\/api\/supabase/, '');
+    
+    // Dé-obfusquer le chemin
+    if (path.includes('/secure-t')) {
+      path = path.replace('/secure-t', '/auth/v1/token');
+    } else if (path.includes('/secure-s')) {
+      path = path.replace('/secure-s', '/auth/v1/signup');
+    } else if (path.includes('/secure-u')) {
+      path = path.replace('/secure-u', '/auth/v1/user');
+    }
     
     // Construct target URL
     const targetUrl = new URL(path + url.search, SUPABASE_TARGET_URL).toString();
@@ -34,6 +43,7 @@ export default async function handler(req) {
     const allowedHeaders = [
       'content-type',
       'apikey',
+      'x-sb-key', // Notre entête obfusquée
       'authorization',
       'prefer',
       'range',
@@ -43,7 +53,11 @@ export default async function handler(req) {
     for (const [key, value] of req.headers.entries()) {
       const lowerKey = key.toLowerCase();
       if (allowedHeaders.includes(lowerKey)) {
-        headers.set(key, value);
+        if (lowerKey === 'x-sb-key') {
+          headers.set('apikey', value); // Restaurer apikey
+        } else {
+          headers.set(key, value);
+        }
       }
     }
 

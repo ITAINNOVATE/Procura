@@ -25,7 +25,46 @@ document.addEventListener('DOMContentLoaded', () => {
         ? 'https://yhutkoevddnydlvoqeqj.supabase.co' 
         : window.location.origin + '/api/supabase';
     const SUPABASE_ANON_KEY = 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
-    const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+    // Intercepteur de requêtes pour masquer les signatures de Supabase aux antivirus agressifs (comme HP Wolf)
+    const customFetch = async (url, options = {}) => {
+        // Normaliser les en-têtes en minuscules pour faciliter le remplacement
+        const newHeaders = {};
+        if (options.headers) {
+            for (const [key, value] of Object.entries(options.headers)) {
+                newHeaders[key.toLowerCase()] = value;
+            }
+        }
+        
+        // Masquer l'entête apikey sous x-sb-key
+        if (newHeaders['apikey']) {
+            newHeaders['x-sb-key'] = newHeaders['apikey'];
+            delete newHeaders['apikey'];
+        }
+        
+        // Obfusquer les URL de connexion et d'inscription
+        let newUrl = url;
+        if (typeof url === 'string') {
+            if (url.includes('/auth/v1/token')) {
+                newUrl = url.replace('/auth/v1/token', '/secure-t');
+            } else if (url.includes('/auth/v1/signup')) {
+                newUrl = url.replace('/auth/v1/signup', '/secure-s');
+            } else if (url.includes('/auth/v1/user')) {
+                newUrl = url.replace('/auth/v1/user', '/secure-u');
+            }
+        }
+
+        return fetch(newUrl, {
+            ...options,
+            headers: newHeaders
+        });
+    };
+
+    const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: {
+            fetch: isLocalhost ? fetch : customFetch
+        }
+    }) : null;
 
     // ══════════════════════════════════════════════════════════
     //  LIENS DE PAIEMENT SÉCURISÉS (OPTIONS RÉELLES FEDAPAY / KKIAPAY / CINETPAY)
