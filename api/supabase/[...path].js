@@ -52,10 +52,17 @@ export default async function handler(req) {
       redirect: 'manual'
     });
 
-    // Copy response headers
+    // Copy response headers, omitting compression and encoding headers that are handled by the runtime
     const resHeaders = new Headers();
     for (const [key, value] of response.headers.entries()) {
-      resHeaders.set(key, value);
+      const lowerKey = key.toLowerCase();
+      if (
+        lowerKey !== 'content-encoding' &&
+        lowerKey !== 'content-length' &&
+        lowerKey !== 'transfer-encoding'
+      ) {
+        resHeaders.set(key, value);
+      }
     }
     // Ensure CORS is allowed
     resHeaders.set('Access-Control-Allow-Origin', '*');
