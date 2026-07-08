@@ -27,6 +27,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const SUPABASE_ANON_KEY = 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
     const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
+    // ══════════════════════════════════════════════════════════
+    //  LIENS DE PAIEMENT SÉCURISÉS (OPTIONS RÉELLES FEDAPAY / KKIAPAY / CINETPAY)
+    // ══════════════════════════════════════════════════════════
+    const PAYMENT_LINKS = {
+        daily: 'https://kkiapay.me/link/daily-procura-placeholder',
+        weekly: 'https://kkiapay.me/link/weekly-procura-placeholder',
+        monthly: 'https://kkiapay.me/link/monthly-procura-placeholder',
+        annual: 'https://kkiapay.me/link/annual-procura-placeholder'
+    };
+
     let currentUser = null;
     let userProfile = null; // contiendra { id, email, plan, profile_type, questions_asked }
 
@@ -460,7 +470,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
     window.goToStep = function(stepId) {
         // Hide all cards
-        const allSteps = ['stepPlans', 'stepProfile', 'stepForm', 'stepSignUp'];
+        const allSteps = ['stepPlans', 'stepProfile', 'stepForm', 'stepSignUp', 'stepPayment'];
         allSteps.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.add('hidden');
@@ -491,8 +501,111 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             validateSignUpForm();
         }
         
-        document.getElementById('stepProfile').classList.add('hidden');
-        document.getElementById('stepSignUp').classList.remove('hidden');
+        // Si l'utilisateur est déjà connecté
+        if (currentUser) {
+            if (selectedPlan === 'free') {
+                // Plan gratuit : pas de paiement, on ferme directement la modale
+                const modal = document.getElementById('paywallModal');
+                if (modal) modal.classList.add('hidden');
+                updateUIForLoggedIn();
+            } else {
+                // Plan payant : on configure et affiche l'écran de paiement directement
+                setupPaymentScreen();
+                goToStep('stepPayment');
+            }
+        } else {
+            // Non connecté : redirection classique vers l'inscription / connexion
+            document.getElementById('stepProfile').classList.add('hidden');
+            document.getElementById('stepSignUp').classList.remove('hidden');
+        }
+    };
+
+    // Configuration de l'écran récapitulatif de paiement
+    function setupPaymentScreen() {
+        const planNameEl = document.getElementById('payPlanName');
+        const planPriceEl = document.getElementById('payPlanPrice');
+        const profileNameEl = document.getElementById('payProfileName');
+
+        if (planNameEl) {
+            planNameEl.textContent = getPlanLabel(selectedPlan).toUpperCase();
+        }
+
+        if (planPriceEl) {
+            let priceText = '';
+            if (selectedPlan === 'daily') priceText = '1$ <span class="pay-price-sub">/ ~600 FCFA par jour</span>';
+            else if (selectedPlan === 'weekly') priceText = '3$ <span class="pay-price-sub">/ ~1 800 FCFA par semaine</span>';
+            else if (selectedPlan === 'monthly') priceText = '15$ <span class="pay-price-sub">/ ~9 000 FCFA par mois</span>';
+            else if (selectedPlan === 'annual') priceText = '100 000 FCFA <span class="pay-price-sub">/ an</span>';
+            else priceText = '0$ <span class="pay-price-sub">/ gratuit</span>';
+            planPriceEl.innerHTML = priceText;
+        }
+
+        if (profileNameEl) {
+            profileNameEl.textContent = selectedProfile === 'agent' ? 'Agent public / Professionnel' : 'Opérateur économique / Entrepreneur';
+        }
+    }
+
+    // Gestion de la sélection visuelle des modes de paiement
+    window.selectPaymentMethod = function(labelEl) {
+        document.querySelectorAll('.pay-method-card').forEach(card => {
+            card.classList.remove('active');
+            const radio = card.querySelector('input[type="radio"]');
+            if (radio) radio.checked = false;
+        });
+
+        labelEl.classList.add('active');
+        const radio = labelEl.querySelector('input[type="radio"]');
+        if (radio) radio.checked = true;
+    };
+
+    // Redirection sécurisée vers le lien de paiement correspondant au plan choisi
+    window.handlePaymentSubmit = function() {
+        const errorEl = document.getElementById('payError');
+        const submitBtn = document.getElementById('paySubmitBtn');
+        
+        if (errorEl) errorEl.classList.add('hidden');
+        
+        if (!selectedPlan) {
+            if (errorEl) {
+                errorEl.textContent = "❌ Aucun plan sélectionné. Veuillez revenir en arrière.";
+                errorEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        const selectedMethodInput = document.querySelector('input[name="payMethod"]:checked');
+        const paymentMethod = selectedMethodInput ? selectedMethodInput.value : 'momo';
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Redirection en cours...";
+        }
+
+        const paymentUrl = PAYMENT_LINKS[selectedPlan];
+        
+        if (paymentUrl) {
+            try {
+                const finalUrl = new URL(paymentUrl);
+                finalUrl.searchParams.set('email', currentUser ? currentUser.email : '');
+                finalUrl.searchParams.set('method', paymentMethod);
+                
+                // Redirige vers la passerelle de paiement
+                window.location.href = finalUrl.toString();
+            } catch (urlErr) {
+                // Si l'URL dans PAYMENT_LINKS n'est pas une URL absolue valide (ex: contient "placeholder")
+                // On peut quand même tenter de rediriger ou afficher une erreur propre
+                window.location.href = paymentUrl;
+            }
+        } else {
+            if (errorEl) {
+                errorEl.textContent = "❌ Erreur : Lien de paiement non configuré pour ce plan.";
+                errorEl.classList.remove('hidden');
+            }
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Confirmer et Régler";
+            }
+        }
     };
 
     // ── Password Visibility Toggle ─────────────────────────
@@ -646,11 +759,17 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 if (data && data.user) {
                     currentUser = data.user;
                     
-                    // Fermeture instantanée de la modale pour une sensation de réactivité immédiate
-                    const modal = document.getElementById('paywallModal');
-                    if (modal) modal.classList.add('hidden');
-                    
                     updateUIForLoggedIn();
+
+                    const modal = document.getElementById('paywallModal');
+                    if (selectedPlan && selectedPlan !== 'free') {
+                        // Plan payant : on l'oriente vers le paiement au lieu de fermer la modale
+                        setupPaymentScreen();
+                        goToStep('stepPayment');
+                    } else {
+                        // Plan gratuit : fermeture de la modale
+                        if (modal) modal.classList.add('hidden');
+                    }
 
                     // Insérer et synchroniser le profil en arrière-plan
                     (async () => {
@@ -753,9 +872,15 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 
                 currentUser = data.user;
                 
-                // Fermeture instantanée de la modale pour une sensation de réactivité immédiate
                 const modal = document.getElementById('paywallModal');
-                if (modal) modal.classList.add('hidden');
+                if (selectedPlan && selectedPlan !== 'free') {
+                    // Plan payant : on l'oriente vers le paiement au lieu de fermer la modale
+                    setupPaymentScreen();
+                    goToStep('stepPayment');
+                } else {
+                    // Plan gratuit : fermeture de la modale
+                    if (modal) modal.classList.add('hidden');
+                }
                 
                 // Note : Pas besoin d'appeler syncUserProfile() ou updateUIForLoggedIn() ici,
                 // car l'événement onAuthStateChange s'active automatiquement à la connexion et s'en charge.

@@ -600,6 +600,60 @@
                 </div>
             </div> <!-- End stepSignUp -->
 
+            <!-- ══ STEP 5 : Paiement (Payment) ══ -->
+            <div class="paywall-card reg-step hidden" id="stepPayment">
+                <div class="reg-logo">
+                    <img src="assets/logo_procura_sans_fond.png" alt="PROCURA" class="reg-logo-img">
+                </div>
+
+                <h3 class="reg-form-title">Finaliser votre abonnement</h3>
+                <p class="reg-form-subtitle">Réglez votre accès pour activer immédiatement vos fonctionnalités Premium.</p>
+
+                <!-- Plan summary box -->
+                <div class="pay-summary-box">
+                    <div class="pay-summary-header">
+                        <span class="pay-summary-title">Abonnement choisi</span>
+                        <span id="payPlanName" class="pay-plan-badge">MENSUEL</span>
+                    </div>
+                    <div id="payPlanPrice" class="pay-plan-price">9 000 FCFA <span class="pay-price-sub">/ mois</span></div>
+                    <div class="pay-profile-details">Profil sélectionné : <span id="payProfileName" class="pay-profile-badge">Opérateur</span></div>
+                </div>
+
+                <!-- Payment methods selection -->
+                <div class="payment-methods-title">Mode de règlement :</div>
+                <div class="payment-methods-grid">
+                    <label class="pay-method-card active" onclick="selectPaymentMethod(this)">
+                        <input type="radio" name="payMethod" value="momo" checked style="display:none;" />
+                        <span class="pay-method-icon">📱</span>
+                        <div class="pay-method-info">
+                            <span class="pay-method-name">Mobile Money</span>
+                            <span class="pay-method-desc">MTN, Moov, Wave, Orange Money</span>
+                        </div>
+                    </label>
+
+                    <label class="pay-method-card" onclick="selectPaymentMethod(this)">
+                        <input type="radio" name="payMethod" value="card" style="display:none;" />
+                        <span class="pay-method-icon">💳</span>
+                        <div class="pay-method-info">
+                            <span class="pay-method-name">Carte Bancaire</span>
+                            <span class="pay-method-desc">Visa, Mastercard</span>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Warning/Information banner -->
+                <div class="pay-info-banner">
+                    <i data-lucide="shield-check"></i>
+                    <span>Paiement sécurisé crypté SSL. Vous allez être redirigé vers notre passerelle de paiement sécurisée.</span>
+                </div>
+
+                <button class="reg-submit-btn gold-btn" id="paySubmitBtn" onclick="handlePaymentSubmit()">Confirmer et Régler</button>
+                
+                <div class="reg-confirmation error-message hidden" id="payError"></div>
+
+                <button class="reg-back-link" onclick="goToStep('stepProfile')">← Retour</button>
+            </div> <!-- End stepPayment -->
+
         </div> <!-- End paywall-card-container -->
     </div> <!-- End paywall-overlay -->
 
