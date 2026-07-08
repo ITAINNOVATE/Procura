@@ -34,7 +34,9 @@ export default async function handler(req) {
     const allowedHeaders = [
       'content-type',
       'apikey',
+      'x-sb-key',
       'authorization',
+      'x-sb-auth',
       'prefer',
       'range',
       'accept',
@@ -43,7 +45,13 @@ export default async function handler(req) {
     for (const [key, value] of req.headers.entries()) {
       const lowerKey = key.toLowerCase();
       if (allowedHeaders.includes(lowerKey)) {
-        headers.set(key, value);
+        if (lowerKey === 'x-sb-key') {
+          headers.set('apikey', value);
+        } else if (lowerKey === 'x-sb-auth') {
+          headers.set('authorization', value);
+        } else {
+          headers.set(key, value);
+        }
       }
     }
 

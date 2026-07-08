@@ -21,10 +21,51 @@ document.addEventListener('DOMContentLoaded', () => {
     const isLocalhost = window.location.hostname === 'localhost' || 
                         window.location.hostname === '127.0.0.1' || 
                         window.location.protocol === 'file:';
-    const SUPABASE_URL = (window.CONFIG && window.CONFIG.SUPABASE_URL) || 'https://yhutkoevddnydlvoqeqj.supabase.co';
+    const SUPABASE_URL = isLocalhost 
+        ? ((window.CONFIG && window.CONFIG.SUPABASE_URL) || 'https://yhutkoevddnydlvoqeqj.supabase.co') 
+        : window.location.origin + '/api/supabase';
     const SUPABASE_ANON_KEY = (window.CONFIG && window.CONFIG.SUPABASE_ANON_KEY) || 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
 
-    const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+    // Intercepteur de requêtes pour déjouer le filtrage Deep Packet Inspection (comme HP Wolf)
+    const customFetch = async (url, options = {}) => {
+        const newHeaders = {};
+        
+        // Copier et normaliser tous les en-têtes en minuscules
+        if (options.headers) {
+            if (typeof options.headers.entries === 'function') {
+                for (const [key, value] of options.headers.entries()) {
+                    newHeaders[key.toLowerCase()] = value;
+                }
+            } else {
+                for (const [key, value] of Object.entries(options.headers)) {
+                    newHeaders[key.toLowerCase()] = value;
+                }
+            }
+        }
+        
+        // Masquer l'entête apikey sous x-sb-key
+        if (newHeaders['apikey']) {
+            newHeaders['x-sb-key'] = newHeaders['apikey'];
+            delete newHeaders['apikey'];
+        }
+        
+        // Masquer l'entête authorization sous x-sb-auth s'il contient la clé publique
+        if (newHeaders['authorization'] && newHeaders['authorization'].includes('sb_publishable')) {
+            newHeaders['x-sb-auth'] = newHeaders['authorization'];
+            delete newHeaders['authorization'];
+        }
+
+        return fetch(url, {
+            ...options,
+            headers: newHeaders
+        });
+    };
+
+    const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: {
+            fetch: isLocalhost ? fetch : customFetch
+        }
+    }) : null;
 
     // ══════════════════════════════════════════════════════════
     //  LIENS DE PAIEMENT SÉCURISÉS (OPTIONS RÉELLES FEDAPAY / KKIAPAY / CINETPAY)
