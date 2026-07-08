@@ -1,36 +1,25 @@
-// Vercel Edge Function - Wildcard Proxy for all Supabase traffic (Auth + REST)
-// Bypasses AdBlock / Antivirus blocks by proxying all requests through the same domain.
-export const config = {
-  runtime: 'edge',
-};
-
-const SUPABASE_TARGET_URL = process.env.SUPABASE_URL || 'https://yhutkoevddnydlvoqeqj.supabase.co';
-
-export default async function handler(req) {
+// Vercel Serverless Function - Wildcard Proxy for all Supabase traffic (Auth + REST)
+// Uses Node.js runtime for stable body buffering and proxying.
+export default async function handler(req, res) {
   // CORS Preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': '*',
-        'Access-Control-Max-Age': '86400',
-      },
-    });
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    return res.status(204).end();
   }
 
   try {
-    const url = new URL(req.url);
-    // Extract the path after /api/supabase
-    // e.g. /api/supabase/auth/v1/token -> /auth/v1/token
-    const path = url.pathname.replace(/^\/api\/supabase/, '');
-    
-    // Construct target URL
-    const targetUrl = new URL(path + url.search, SUPABASE_TARGET_URL).toString();
+    const SUPABASE_TARGET_URL = process.env.SUPABASE_URL || 'https://yhutkoevddnydlvoqeqj.supabase.co';
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
+
+    // Extract path: e.g. /api/supabase/auth/v1/token -> /auth/v1/token
+    const path = req.url.replace(/^\/api\/supabase/, '');
+    const targetUrl = SUPABASE_TARGET_URL + path;
 
     // Prepare headers
-    const headers = new Headers();
+    const headers = {};
     const allowedHeaders = [
       'content-type',
       'apikey',
@@ -42,44 +31,45 @@ export default async function handler(req) {
       'accept',
       'user-agent'
     ];
-    for (const [key, value] of req.headers.entries()) {
+
+    for (const [key, value] of Object.entries(req.headers)) {
       const lowerKey = key.toLowerCase();
       if (allowedHeaders.includes(lowerKey)) {
         if (lowerKey === 'x-sb-key') {
-          headers.set('apikey', value);
+          headers['apikey'] = value;
         } else if (lowerKey === 'x-sb-auth') {
-          headers.set('authorization', value);
+          headers['authorization'] = value;
         } else {
-          headers.set(key, value);
+          headers[key] = value;
         }
       }
     }
 
     // Force/inject API key headers if missing in the incoming request
-    const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
-    if (!headers.has('apikey')) {
-      headers.set('apikey', supabaseKey);
+    if (!headers['apikey']) {
+      headers['apikey'] = supabaseKey;
     }
-    if (!headers.has('authorization')) {
-      headers.set('authorization', `Bearer ${supabaseKey}`);
-    }
-
-    // Read body if method has one (arrayBuffer resolves without stream hangs in Vercel Edge functions)
-    let body = null;
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
-      body = await req.arrayBuffer();
+    if (!headers['authorization']) {
+      headers['authorization'] = `Bearer ${supabaseKey}`;
     }
 
-    // Forward request to Supabase
-    const response = await fetch(targetUrl, {
+    // Forward the request using standard node fetch
+    const fetchOptions = {
       method: req.method,
       headers: headers,
-      body: body,
       redirect: 'manual'
-    });
+    };
 
-    // Copy response headers, omitting compression and encoding headers that are handled by the runtime
-    const resHeaders = new Headers();
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+      // req.body is already parsed as an object or string by Vercel
+      fetchOptions.body = typeof req.body === 'object' ? JSON.stringify(req.body) : req.body;
+    }
+
+    const response = await fetch(targetUrl, fetchOptions);
+    const responseText = await response.text();
+
+    // Copy response headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
     for (const [key, value] of response.headers.entries()) {
       const lowerKey = key.toLowerCase();
       if (
@@ -87,26 +77,15 @@ export default async function handler(req) {
         lowerKey !== 'content-length' &&
         lowerKey !== 'transfer-encoding'
       ) {
-        resHeaders.set(key, value);
+        res.setHeader(key, value);
       }
     }
-    // Ensure CORS is allowed
-    resHeaders.set('Access-Control-Allow-Origin', '*');
 
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: resHeaders
-    });
+    res.status(response.status).send(responseText);
 
   } catch (err) {
     console.error("Supabase Proxy Error:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.status(500).json({ error: err.message });
   }
 }
