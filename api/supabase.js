@@ -24,26 +24,16 @@ export default async function handler(req) {
     const url = new URL(req.url);
     // Extract the path after /api/supabase
     // e.g. /api/supabase/auth/v1/token -> /auth/v1/token
-    let path = url.pathname.replace(/^\/api\/supabase/, '');
-    
-    // Dé-obfusquer le chemin
-    if (path.includes('/secure-t')) {
-      path = path.replace('/secure-t', '/auth/v1/token');
-    } else if (path.includes('/secure-s')) {
-      path = path.replace('/secure-s', '/auth/v1/signup');
-    } else if (path.includes('/secure-u')) {
-      path = path.replace('/secure-u', '/auth/v1/user');
-    }
+    const path = url.pathname.replace(/^\/api\/supabase/, '');
     
     // Construct target URL
     const targetUrl = new URL(path + url.search, SUPABASE_TARGET_URL).toString();
 
-    // Prepare headers - only forward safe and standard headers to avoid CDN/WAF blockages (like spoofed CF/Vercel headers)
+    // Prepare headers
     const headers = new Headers();
     const allowedHeaders = [
       'content-type',
       'apikey',
-      'x-sb-key', // Notre entête obfusquée
       'authorization',
       'prefer',
       'range',
@@ -53,16 +43,15 @@ export default async function handler(req) {
     for (const [key, value] of req.headers.entries()) {
       const lowerKey = key.toLowerCase();
       if (allowedHeaders.includes(lowerKey)) {
-        if (lowerKey === 'x-sb-key') {
-          headers.set('apikey', value); // Restaurer apikey
-        } else {
-          headers.set(key, value);
-        }
+        headers.set(key, value);
       }
     }
 
-    // Stream the body directly to avoid memory buffering hangs
-    const body = ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? null : req.body;
+    // Read body if method has one (arrayBuffer resolves without stream hangs in Vercel Edge functions)
+    let body = null;
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+      body = await req.arrayBuffer();
+    }
 
     // Forward request to Supabase
     const response = await fetch(targetUrl, {
