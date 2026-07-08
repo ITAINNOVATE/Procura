@@ -18,7 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // ══════════════════════════════════════════════════════════
     //  SUPABASE CONFIGURATION & CLIENT INITIALIZATION
     // ══════════════════════════════════════════════════════════
-    const SUPABASE_URL = 'https://yhutkoevddnydlvoqeqj.supabase.co';
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' || 
+                        window.location.protocol === 'file:';
+    const SUPABASE_URL = isLocalhost 
+        ? 'https://yhutkoevddnydlvoqeqj.supabase.co' 
+        : window.location.origin + '/api/supabase';
     const SUPABASE_ANON_KEY = 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
     const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
@@ -617,14 +622,10 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         
         if (supabase) {
             try {
-                // Appel sécurisé via le proxy API pour contourner les blocages AdBlock / Antivirus
-                const res = await fetch('/api/auth', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'signup',
-                        email,
-                        password,
+                const { data, error } = await supabase.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
                         data: {
                             first_name: firstName,
                             last_name: lastName,
@@ -636,19 +637,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                             job_title: jobTitle,
                             plan: selectedPlan || 'free'
                         }
-                    })
-                });
-
-                const authResult = await res.json();
-
-                if (authResult.error || authResult.msg) {
-                    throw new Error(authResult.error_description || authResult.msg || authResult.error || "Erreur lors de l'inscription");
-                }
-
-                // Charger la session dans le client Supabase (connexion immédiate)
-                const { data, error } = await supabase.auth.setSession({
-                    access_token: authResult.access_token,
-                    refresh_token: authResult.refresh_token
+                    }
                 });
                 
                 if (error) throw error;
@@ -748,27 +737,13 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         
         if (supabase) {
             try {
-                // Appel sécurisé via le proxy API pour contourner les blocages AdBlock / Antivirus
-                const res = await fetch('/api/auth', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'login', email, password })
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
                 });
-
-                const authResult = await res.json();
-
+                
                 isResolved = true;
                 clearTimeout(timeoutId);
-
-                if (authResult.error || authResult.msg) {
-                    throw new Error(authResult.error_description || authResult.msg || authResult.error || "Identifiants invalides ou problème de connexion");
-                }
-
-                // Charger la session dans le client Supabase
-                const { data, error } = await supabase.auth.setSession({
-                    access_token: authResult.access_token,
-                    refresh_token: authResult.refresh_token
-                });
                 
                 if (error) throw error;
 
