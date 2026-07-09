@@ -1,5 +1,5 @@
 // Vercel Serverless Function - Wildcard Proxy for all Supabase traffic (Auth + REST)
-// Uses Vercel's native [...path] routing for robust path resolution.
+// Uses Vercel query de-rewriting for robust path resolution in Node.js.
 export default async function handler(req, res) {
   // CORS Preflight
   if (req.method === 'OPTIONS') {
@@ -14,11 +14,12 @@ export default async function handler(req, res) {
     const SUPABASE_TARGET_URL = process.env.SUPABASE_URL || 'https://yhutkoevddnydlvoqeqj.supabase.co';
     const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
 
-    // Reconstruct the target URL path using Vercel's [...path] routing
-    const pathSegments = req.query.path || [];
-    const path = '/' + (Array.isArray(pathSegments) ? pathSegments.join('/') : pathSegments);
+    // Reconstruct path from Vercel query rewrite wildcard parameter
+    // e.g. /api/supabase/auth/v1/token -> req.query.path = 'auth/v1/token'
+    const queryPath = req.query.path || '';
+    const path = '/' + (Array.isArray(queryPath) ? queryPath.join('/') : queryPath).replace(/^\//, '');
 
-    // Reconstruct query parameters (excluding the 'path' parameter used by Vercel routing)
+    // Reconstruct query parameters (excluding the 'path' parameter added by Vercel rewrite)
     const queryParams = { ...req.query };
     delete queryParams.path;
     const queryString = new URLSearchParams(queryParams).toString();
