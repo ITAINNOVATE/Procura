@@ -997,10 +997,15 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             }
         }, 6000); // 6 secondes de timeout
         
+        console.log(`[AUTH] Début handleSignIn avec l'e-mail: ${email}`);
+
         if (supabase) {
             try {
+                const targetEndpoint = SUPABASE_URL + '/auth/v1/token?grant_type=password';
+                console.log(`[AUTH] Envoi du fetch vers: ${targetEndpoint}`);
+                
                 // Direct fetch login bypasses SDK internal network hangs/blockages
-                const loginRes = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+                const loginRes = await fetch(targetEndpoint, {
                     method: 'POST',
                     headers: {
                         'content-type': 'application/json',
@@ -1013,18 +1018,24 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                     })
                 });
 
+                console.log(`[AUTH] Fetch retourné avec le statut: ${loginRes.status} ${loginRes.statusText}`);
+
                 if (!loginRes.ok) {
                     const errData = await loginRes.json().catch(() => ({}));
+                    console.error(`[AUTH] Échec de la connexion (JSON):`, errData);
                     throw new Error(errData.error_description || errData.message || `Erreur HTTP ${loginRes.status}`);
                 }
 
                 const sessionData = await loginRes.json();
+                console.log(`[AUTH] Session JSON reçue. Token d'accès présent: ${!!sessionData.access_token}`);
                 
                 // Initialize the SDK client session with the retrieved token
+                console.log(`[AUTH] Initialisation de setSession dans le SDK Supabase...`);
                 await supabase.auth.setSession({
                     access_token: sessionData.access_token,
                     refresh_token: sessionData.refresh_token
                 });
+                console.log(`[AUTH] setSession terminé !`);
                 
                 isResolved = true;
                 clearTimeout(timeoutId);
