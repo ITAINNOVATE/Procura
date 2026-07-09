@@ -4,6 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PROCURA - Assistant des marchés publics</title>
+    
+    <!-- Global Storage Blocker Bypass -->
+    <script>
+        (function() {
+            try {
+                const testKey = '__storage_test__';
+                window.localStorage.setItem(testKey, testKey);
+                window.localStorage.removeItem(testKey);
+            } catch (e) {
+                console.warn("[PROCURA] localStorage is blocked by browser/antivirus. Injecting safe memory storage mocks.", e);
+                const makeMockStorage = () => {
+                    const store = {};
+                    return {
+                        getItem(key) { return store[key] || null; },
+                        setItem(key, value) { store[key] = String(value); },
+                        removeItem(key) { delete store[key]; },
+                        clear() { for (const k in store) delete store[k]; },
+                        get length() { return Object.keys(store).length; },
+                        key(index) { return Object.keys(store)[index] || null; }
+                    };
+                };
+                const mockLocal = makeMockStorage();
+                const mockSession = makeMockStorage();
+                try {
+                    Object.defineProperty(window, 'localStorage', { value: mockLocal, configurable: true, enumerable: true, writable: true });
+                    Object.defineProperty(window, 'sessionStorage', { value: mockSession, configurable: true, enumerable: true, writable: true });
+                } catch (err) {
+                    console.error("[PROCURA] Failed to redefine storage properties:", err);
+                    window.localStorage = mockLocal;
+                    window.sessionStorage = mockSession;
+                }
+            }
+        })();
+    </script>
+
     <!-- Google Fonts: Outfit and Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -708,6 +743,6 @@
     </div>
 
     <script src="/api/app-config.js"></script>
-    <script src="script.js?v=20260708_v8"></script>
+    <script src="script.js?v=20260708_v9"></script>
 </body>
 </html>
