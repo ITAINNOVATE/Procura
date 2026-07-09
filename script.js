@@ -102,13 +102,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }) : null;
 
     // ══════════════════════════════════════════════════════════
-    //  LIENS DE PAIEMENT SÉCURISÉS (OPTIONS RÉELLES FEDAPAY / KKIAPAY / CINETPAY)
+    //  CONFIGURATION FEDAPAY (LIVE)
     // ══════════════════════════════════════════════════════════
-    const PAYMENT_LINKS = {
-        daily: 'https://kkiapay.me/link/daily-procura-placeholder',
-        weekly: 'https://kkiapay.me/link/weekly-procura-placeholder',
-        monthly: 'https://kkiapay.me/link/monthly-procura-placeholder',
-        annual: 'https://kkiapay.me/link/annual-procura-placeholder'
+    const FEDAPAY_PUBLIC_KEY = 'pk_live_bKEHs4ybJfYaaDTgZlOoLv0O';
+    
+    // Tarifs en FCFA pour chaque plan
+    const PLAN_PRICES = {
+        daily: 600,
+        weekly: 1800,
+        monthly: 9000,
+        annual: 100000
     };
 
     let currentUser = null;
@@ -628,11 +631,11 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
         if (planPriceEl) {
             let priceText = '';
-            if (selectedPlan === 'daily') priceText = '1$ <span class="pay-price-sub">/ ~600 FCFA par jour</span>';
-            else if (selectedPlan === 'weekly') priceText = '3$ <span class="pay-price-sub">/ ~1 800 FCFA par semaine</span>';
-            else if (selectedPlan === 'monthly') priceText = '15$ <span class="pay-price-sub">/ ~9 000 FCFA par mois</span>';
+            if (selectedPlan === 'daily') priceText = '600 FCFA <span class="pay-price-sub">/ par jour</span>';
+            else if (selectedPlan === 'weekly') priceText = '1 800 FCFA <span class="pay-price-sub">/ par semaine</span>';
+            else if (selectedPlan === 'monthly') priceText = '9 000 FCFA <span class="pay-price-sub">/ par mois</span>';
             else if (selectedPlan === 'annual') priceText = '100 000 FCFA <span class="pay-price-sub">/ an</span>';
-            else priceText = '0$ <span class="pay-price-sub">/ gratuit</span>';
+            else priceText = '0 FCFA <span class="pay-price-sub">/ gratuit</span>';
             planPriceEl.innerHTML = priceText;
         }
 
@@ -654,14 +657,14 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         if (radio) radio.checked = true;
     };
 
-    // Redirection sécurisée vers le lien de paiement correspondant au plan choisi
+    // Initialisation sécurisée du paiement FedaPay
     window.handlePaymentSubmit = function() {
         const errorEl = document.getElementById('payError');
         const submitBtn = document.getElementById('paySubmitBtn');
         
         if (errorEl) errorEl.classList.add('hidden');
         
-        if (!selectedPlan) {
+        if (!selectedPlan || !PLAN_PRICES[selectedPlan]) {
             if (errorEl) {
                 errorEl.textContent = "❌ Aucun plan sélectionné. Veuillez revenir en arrière.";
                 errorEl.classList.remove('hidden');
@@ -669,37 +672,90 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             return;
         }
 
-        const selectedMethodInput = document.querySelector('input[name="payMethod"]:checked');
-        const paymentMethod = selectedMethodInput ? selectedMethodInput.value : 'momo';
+        if (typeof FedaPay === 'undefined') {
+            if (errorEl) {
+                errorEl.textContent = "⚠️ Impossible de charger le module de paiement FedaPay. Vérifiez votre connexion internet.";
+                errorEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        const price = PLAN_PRICES[selectedPlan];
+        const planName = getPlanLabel(selectedPlan);
 
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.textContent = "Redirection en cours...";
+            submitBtn.textContent = "Initialisation du paiement...";
         }
 
-        const paymentUrl = PAYMENT_LINKS[selectedPlan];
-        
-        if (paymentUrl) {
-            try {
-                const finalUrl = new URL(paymentUrl);
-                finalUrl.searchParams.set('email', currentUser ? currentUser.email : '');
-                finalUrl.searchParams.set('method', paymentMethod);
-                
-                // Redirige vers la passerelle de paiement
-                window.location.href = finalUrl.toString();
-            } catch (urlErr) {
-                // Si l'URL dans PAYMENT_LINKS n'est pas une URL absolue valide (ex: contient "placeholder")
-                // On peut quand même tenter de rediriger ou afficher une erreur propre
-                window.location.href = paymentUrl;
-            }
-        } else {
-            if (errorEl) {
-                errorEl.textContent = "❌ Erreur : Lien de paiement non configuré pour ce plan.";
-                errorEl.classList.remove('hidden');
-            }
+        try {
+            let widget = FedaPay.init({
+                public_key: FEDAPAY_PUBLIC_KEY,
+                transaction: {
+                    amount: price,
+                    description: `Abonnement PROCURA - Plan ${planName}`
+                },
+                customer: {
+                    email: currentUser ? currentUser.email : 'client@procura.africa',
+                    lastname: currentUser && currentUser.user_metadata ? currentUser.user_metadata.last_name || 'Client' : 'Client',
+                    firstname: currentUser && currentUser.user_metadata ? currentUser.user_metadata.first_name || 'PROCURA' : 'PROCURA'
+                },
+                onComplete: async function(resp) {
+                    const reason = resp.reason;
+                    if (reason === FedaPay.DIALOG_DISMISSED) {
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = "Confirmer et Régler";
+                        }
+                        if (errorEl) {
+                            errorEl.textContent = "Paiement annulé.";
+                            errorEl.classList.remove('hidden');
+                        }
+                    } else if (reason === FedaPay.CHECKOUT_COMPLETED) {
+                        // Paiement réussi
+                        if (submitBtn) {
+                            submitBtn.textContent = "Paiement réussi ! Activation...";
+                        }
+                        // Sauvegarder dans Supabase
+                        if (supabase && currentUser) {
+                            try {
+                                await supabase
+                                    .from('profiles')
+                                    .update({ plan: selectedPlan })
+                                    .eq('id', currentUser.id);
+                                
+                                // Rafraîchir le profil
+                                await syncUserProfile();
+                                updateUIForLoggedIn();
+                                
+                                // Fermer la modale et réinitialiser
+                                const modal = document.getElementById('paywallModal');
+                                if (modal) modal.classList.add('hidden');
+                                alert(`Félicitations ! Votre abonnement au plan ${planName} est désormais actif.`);
+                                
+                            } catch (err) {
+                                console.error("Erreur lors de la mise à jour du profil après paiement:", err);
+                                if (errorEl) {
+                                    errorEl.textContent = "Paiement réussi, mais erreur lors de l'activation. Veuillez contacter le support.";
+                                    errorEl.classList.remove('hidden');
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            widget.open();
+
+        } catch (err) {
+            console.error("FedaPay Init Error:", err);
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.textContent = "Confirmer et Régler";
+            }
+            if (errorEl) {
+                errorEl.textContent = "Une erreur est survenue lors du lancement du paiement.";
+                errorEl.classList.remove('hidden');
             }
         }
     };
