@@ -922,9 +922,11 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         const password = document.getElementById('loginPassword').value;
         const errorEl = document.getElementById('loginError');
         const submitBtn = document.getElementById('loginSubmitBtn');
-        
+        const diagEl = document.getElementById('loginDiag');
+
         if (errorEl) errorEl.classList.add('hidden');
-        
+        if (diagEl) diagEl.style.display = 'none';
+
         if (!email || !password) {
             if (errorEl) {
                 errorEl.textContent = "❌ Veuillez remplir tous les champs.";
@@ -932,161 +934,67 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             }
             return;
         }
-        
+
         if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.textContent = "Connexion...";
         }
 
-        const runDiagnostics = async () => {
-            const diagEl = document.getElementById('loginDiag');
-            if (!diagEl) return;
-            diagEl.style.display = 'block';
-            diagEl.textContent = "🔍 Diagnostic Réseau :\n";
+        console.log(`[AUTH] signInWithPassword: ${email}`);
 
-            try {
-                diagEl.textContent += `- Protocole: ${window.location.protocol}\n`;
-                diagEl.textContent += `- Hostname: ${window.location.hostname}\n`;
-                diagEl.textContent += `- Mode Local: ${isLocalhost}\n`;
-                diagEl.textContent += `- SUPABASE_URL: ${SUPABASE_URL}\n`;
-
-                diagEl.textContent += `- Appel test vers le proxy... `;
-                const start = Date.now();
-                const res = await fetch(SUPABASE_URL + '/auth/v1/token', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({})
-                });
-                const duration = Date.now() - start;
-                
-                diagEl.textContent += `Réponse en ${duration}ms\n`;
-                diagEl.textContent += `- Statut HTTP: ${res.status} ${res.statusText}\n`;
-                
-                const headersObj = {};
-                res.headers.forEach((val, key) => { headersObj[key] = val; });
-                diagEl.textContent += `- En-têtes: ${JSON.stringify(headersObj, null, 2)}\n`;
-
-                const text = await res.text();
-                diagEl.textContent += `- Corps (200 car.): ${text.substring(0, 200)}\n`;
-                
-            } catch (diagErr) {
-                diagEl.textContent += `ÉCHEC ❌\n- Erreur: ${diagErr.message || diagErr}\n`;
-            }
-
-            // Exposer les logs console accumulés
-            diagEl.textContent += `\n📋 LOGS CONSOLE RÉCENTS :\n`;
-            if (window.CONSOLE_LOGS && window.CONSOLE_LOGS.length > 0) {
-                diagEl.textContent += window.CONSOLE_LOGS.join('\n');
-            } else {
-                diagEl.textContent += `Aucun log capturé.\n`;
-            }
-        };
-
-        let isResolved = false;
-        const timeoutId = setTimeout(() => {
-            if (!isResolved) {
-                if (errorEl) {
-                    errorEl.textContent = "⚠️ La connexion prend anormalement du temps. Si vous utilisez Brave, un bloqueur de publicité (AdBlock) ou un pare-feu, veuillez le désactiver temporairement pour ce site.";
-                    errorEl.classList.remove('hidden');
-                }
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = "Se connecter";
-                }
-                runDiagnostics();
-            }
-        }, 6000); // 6 secondes de timeout
-        
-        console.log(`[AUTH] Début handleSignIn avec l'e-mail: ${email}`);
-
-        if (supabase) {
-            try {
-                const targetEndpoint = SUPABASE_URL + '/auth/v1/token?grant_type=password';
-                console.log(`[AUTH] Envoi du fetch vers: ${targetEndpoint}`);
-                
-                // Direct fetch login bypasses SDK internal network hangs/blockages
-                const loginRes = await fetch(targetEndpoint, {
-                    method: 'POST',
-                    headers: {
-                        'content-type': 'application/json',
-                        'x-sb-key': SUPABASE_ANON_KEY
-                    },
-                    credentials: 'omit',
-                    body: JSON.stringify({
-                        email: email,
-                        password: password
-                    })
-                });
-
-                console.log(`[AUTH] Fetch retourné avec le statut: ${loginRes.status} ${loginRes.statusText}`);
-
-                if (!loginRes.ok) {
-                    const errData = await loginRes.json().catch(() => ({}));
-                    console.error(`[AUTH] Échec de la connexion (JSON):`, errData);
-                    throw new Error(errData.error_description || errData.message || `Erreur HTTP ${loginRes.status}`);
-                }
-
-                const sessionData = await loginRes.json();
-                console.log(`[AUTH] Session JSON reçue. Token d'accès présent: ${!!sessionData.access_token}`);
-                
-                // Initialize the SDK client session with the retrieved token
-                console.log(`[AUTH] Initialisation de setSession dans le SDK Supabase...`);
-                await supabase.auth.setSession({
-                    access_token: sessionData.access_token,
-                    refresh_token: sessionData.refresh_token
-                });
-                console.log(`[AUTH] setSession terminé !`);
-                
-                isResolved = true;
-                clearTimeout(timeoutId);
-                
-                const data = { user: sessionData.user };
-                
-                currentUser = data.user;
-                
-                const modal = document.getElementById('paywallModal');
-                if (selectedPlan && selectedPlan !== 'free') {
-                    // Plan payant : on l'oriente vers le paiement au lieu de fermer la modale
-                    setupPaymentScreen();
-                    goToStep('stepPayment');
-                } else {
-                    // Plan gratuit : fermeture de la modale
-                    if (modal) modal.classList.add('hidden');
-                }
-                
-                // Note : Pas besoin d'appeler syncUserProfile() ou updateUIForLoggedIn() ici,
-                // car l'événement onAuthStateChange s'active automatiquement à la connexion et s'en charge.
-                
-            } catch (err) {
-                isResolved = true;
-                clearTimeout(timeoutId);
-                console.error("SignIn error:", err);
-                if (errorEl) {
-                    let detailMsg = "";
-                    if (err && typeof err === 'object') {
-                        const allKeys = Object.getOwnPropertyNames(err);
-                        const errObj = {};
-                        allKeys.forEach(k => { errObj[k] = err[k]; });
-                        detailMsg = err.message || err.error_description || err.description || JSON.stringify(errObj);
-                    } else {
-                        detailMsg = String(err);
-                    }
-                    errorEl.textContent = "Erreur : " + detailMsg;
-                    errorEl.classList.remove('hidden');
-                }
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = "Se connecter";
-                }
-                runDiagnostics();
-            }
-        } else {
-            isResolved = true;
-            clearTimeout(timeoutId);
+        if (!supabase) {
+            // Fallback offline
             currentUser = { email: email, id: 'mock-user-123' };
             updateUIForLoggedIn();
             const modal = document.getElementById('paywallModal');
             if (modal) modal.classList.add('hidden');
+            return;
+        }
+
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
+
+            if (error) throw error;
+
+            if (!data || !data.user) {
+                throw new Error("Impossible de récupérer les informations de l'utilisateur.");
+            }
+
+            currentUser = data.user;
+            console.log(`[AUTH] Connexion réussie: ${currentUser.email}`);
+
+            const modal = document.getElementById('paywallModal');
+            if (selectedPlan && selectedPlan !== 'free') {
+                setupPaymentScreen();
+                goToStep('stepPayment');
+            } else {
+                if (modal) modal.classList.add('hidden');
+            }
+            // onAuthStateChange gère syncUserProfile et updateUIForLoggedIn automatiquement.
+
+        } catch (err) {
+            console.error("[AUTH] Erreur:", err);
+            if (errorEl) {
+                let msg = "❌ Erreur de connexion.";
+                if (err && err.message) {
+                    if (err.message.includes('Invalid login credentials') || err.message.includes('invalid_credentials')) {
+                        msg = "❌ E-mail ou mot de passe incorrect.";
+                    } else if (err.message.includes('Email not confirmed')) {
+                        msg = "❌ Veuillez confirmer votre e-mail avant de vous connecter.";
+                    } else {
+                        msg = "❌ " + err.message;
+                    }
+                }
+                errorEl.textContent = msg;
+                errorEl.classList.remove('hidden');
+            }
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Se connecter";
+            }
         }
     };
 
