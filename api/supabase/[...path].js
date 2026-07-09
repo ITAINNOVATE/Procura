@@ -1,5 +1,5 @@
 // Vercel Serverless Function - Wildcard Proxy for all Supabase traffic (Auth + REST)
-// Uses Node.js runtime for stable body buffering and proxying.
+// Uses Vercel's native [...path] routing for robust path resolution.
 export default async function handler(req, res) {
   // CORS Preflight
   if (req.method === 'OPTIONS') {
@@ -14,9 +14,16 @@ export default async function handler(req, res) {
     const SUPABASE_TARGET_URL = process.env.SUPABASE_URL || 'https://yhutkoevddnydlvoqeqj.supabase.co';
     const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
 
-    // Extract path: e.g. /api/supabase/auth/v1/token -> /auth/v1/token
-    const path = req.url.replace(/^\/api\/supabase/, '');
-    const targetUrl = SUPABASE_TARGET_URL + path;
+    // Reconstruct the target URL path using Vercel's [...path] routing
+    const pathSegments = req.query.path || [];
+    const path = '/' + (Array.isArray(pathSegments) ? pathSegments.join('/') : pathSegments);
+
+    // Reconstruct query parameters (excluding the 'path' parameter used by Vercel routing)
+    const queryParams = { ...req.query };
+    delete queryParams.path;
+    const queryString = new URLSearchParams(queryParams).toString();
+    
+    const targetUrl = SUPABASE_TARGET_URL + path + (queryString ? '?' + queryString : '');
 
     // Prepare headers
     const headers = {};
@@ -53,7 +60,7 @@ export default async function handler(req, res) {
       headers['authorization'] = `Bearer ${supabaseKey}`;
     }
 
-    // Forward the request using standard node fetch
+    // Forward the request using standard fetch
     const fetchOptions = {
       method: req.method,
       headers: headers,
