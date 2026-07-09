@@ -8,6 +8,35 @@ document.addEventListener('DOMContentLoaded', () => {
         return false;
     };
 
+    // 🚀 Safe Storage Wrapper to prevent script crashes when localStorage is blocked (Brave, Private, HP Wolf, etc.)
+    const safeStorage = {
+        store: {},
+        getItem(key) {
+            try {
+                return localStorage.getItem(key);
+            } catch (e) {
+                console.warn(`[Storage] Failed to read ${key}:`, e);
+                return this.store[key] || null;
+            }
+        },
+        setItem(key, value) {
+            try {
+                localStorage.setItem(key, value);
+            } catch (e) {
+                console.warn(`[Storage] Failed to write ${key}:`, e);
+                this.store[key] = String(value);
+            }
+        },
+        removeItem(key) {
+            try {
+                localStorage.removeItem(key);
+            } catch (e) {
+                console.warn(`[Storage] Failed to remove ${key}:`, e);
+                delete this.store[key];
+            }
+        }
+    };
+
     // ══════════════════════════════════════════════════════════
     //  CONFIGURATION — Remplacez par votre clé API Gemini
     //  Obtenez-la gratuitement sur : https://aistudio.google.com/
@@ -62,6 +91,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+            storage: safeStorage,
+            persistSession: true,
+            detectSessionInUrl: false
+        },
         global: {
             fetch: isLocalhost ? fetch : customFetch
         }
@@ -157,16 +191,16 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
     let questionsUsed = 0;
     
     function initQuota() {
-        const lastDate = localStorage.getItem('procura_last_date');
+        const lastDate = safeStorage.getItem('procura_last_date');
         const today = new Date().toLocaleDateString();
         
         if (lastDate !== today) {
             // Nouveau jour : reset
-            localStorage.setItem('procura_q_count', '0');
-            localStorage.setItem('procura_last_date', today);
+            safeStorage.setItem('procura_q_count', '0');
+            safeStorage.setItem('procura_last_date', today);
             questionsUsed = 0;
         } else {
-            questionsUsed = parseInt(localStorage.getItem('procura_q_count') || '0');
+            questionsUsed = parseInt(safeStorage.getItem('procura_q_count') || '0');
         }
     }
 
@@ -431,7 +465,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
             if (userProfile && userProfile.questions_asked !== undefined) {
                 questionsUsed = userProfile.questions_asked;
-                localStorage.setItem('procura_q_count', questionsUsed);
+                safeStorage.setItem('procura_q_count', questionsUsed);
             }
         } catch (err) {
             console.error("Error syncing user profile:", err);
@@ -1341,8 +1375,8 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
             // ── Increment question counter ──
             questionsUsed++;
-            localStorage.setItem('procura_q_count', questionsUsed);
-            localStorage.setItem('procura_last_date', new Date().toLocaleDateString());
+            safeStorage.setItem('procura_q_count', questionsUsed);
+            safeStorage.setItem('procura_last_date', new Date().toLocaleDateString());
             
             // Synchroniser le compteur de questions dans Supabase si l'utilisateur est connecté
             if (supabase && currentUser) {
