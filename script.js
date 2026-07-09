@@ -809,25 +809,49 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         
         if (supabase) {
             try {
-                const { data, error } = await supabase.auth.signUp({
-                    email: email,
-                    password: password,
-                    options: {
-                        data: {
-                            first_name: firstName,
-                            last_name: lastName,
-                            phone: phone,
-                            country: country,
-                            profile_type: dbProfileType,       /* 'agent' ou 'operateur' pour le trigger DB */
-                            detailed_profile: profileType,     /* valeur détaillée sélectionnée */
-                            company_name: companyName,
-                            job_title: jobTitle,
-                            plan: selectedPlan || 'free'
+                // Direct fetch registration bypasses SDK internal network hangs/blockages
+                const signUpRes = await fetch(SUPABASE_URL + '/auth/v1/signup', {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json',
+                        'x-sb-key': SUPABASE_ANON_KEY
+                    },
+                    credentials: 'omit',
+                    body: JSON.stringify({
+                        email: email,
+                        password: password,
+                        options: {
+                            data: {
+                                first_name: firstName,
+                                last_name: lastName,
+                                phone: phone,
+                                country: country,
+                                profile_type: dbProfileType,
+                                detailed_profile: profileType,
+                                company_name: companyName,
+                                job_title: jobTitle,
+                                plan: selectedPlan || 'free'
+                            }
                         }
-                    }
+                    })
                 });
+
+                if (!signUpRes.ok) {
+                    const errData = await signUpRes.json().catch(() => ({}));
+                    throw new Error(errData.message || errData.error_description || `Erreur d'inscription HTTP ${signUpRes.status}`);
+                }
+
+                const sessionData = await signUpRes.json();
                 
-                if (error) throw error;
+                // Initialize SDK session if token is returned (for instant login)
+                if (sessionData.access_token && sessionData.refresh_token) {
+                    await supabase.auth.setSession({
+                        access_token: sessionData.access_token,
+                        refresh_token: sessionData.refresh_token
+                    });
+                }
+                
+                const data = { user: sessionData.user };
                 
                 // Si le compte est créé, on connecte directement l'utilisateur
                 if (data && data.user) {
@@ -967,19 +991,37 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         
         if (supabase) {
             try {
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email: email,
-                    password: password
+                // Direct fetch login bypasses SDK internal network hangs/blockages
+                const loginRes = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json',
+                        'x-sb-key': SUPABASE_ANON_KEY
+                    },
+                    credentials: 'omit',
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                });
+
+                if (!loginRes.ok) {
+                    const errData = await loginRes.json().catch(() => ({}));
+                    throw new Error(errData.error_description || errData.message || `Erreur HTTP ${loginRes.status}`);
+                }
+
+                const sessionData = await loginRes.json();
+                
+                // Initialize the SDK client session with the retrieved token
+                await supabase.auth.setSession({
+                    access_token: sessionData.access_token,
+                    refresh_token: sessionData.refresh_token
                 });
                 
                 isResolved = true;
                 clearTimeout(timeoutId);
                 
-                if (error) throw error;
-
-                if (!data || !data.user) {
-                    throw new Error("Impossible de récupérer les informations de l'utilisateur.");
-                }
+                const data = { user: sessionData.user };
                 
                 currentUser = data.user;
                 
