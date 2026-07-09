@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/supabase/:path*",
-      "destination": "/api/supabase"
+      "destination": "/api/supabase.js"
     }
   ]
 }
