@@ -400,7 +400,8 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 const backBtn = document.getElementById('paywallBackBtn');
                 if (backBtn) backBtn.classList.remove('hidden');
             } else {
-                goToStep('stepSignUp');
+                // Montrer le formulaire de connexion en premier (l'utilisateur peut basculer vers l'inscription)
+                goToStep('stepForm');
                 const backBtn = document.getElementById('paywallBackBtn');
                 if (backBtn) backBtn.classList.add('hidden');
             }
@@ -1142,6 +1143,23 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
     // ── View transitions ───────────────────────────────────────
     function startChat(message) {
         if (!message.trim()) return;
+
+        if (!currentUser) {
+            // Amener l'utilisateur sur la vue chat pour qu'il voie le message
+            mainView.classList.add('fade-out');
+            setTimeout(() => {
+                mainView.classList.add('hidden');
+                chatView.classList.remove('hidden');
+                void chatView.offsetWidth;
+                chatView.classList.add('visible');
+                // Afficher le message de l'utilisateur
+                addMessage(message, 'user');
+                // Réponse de bienvenue avec invitation à se connecter
+                addWelcomeLoginMessage();
+            }, 400);
+            return;
+        }
+
         if (!hasAccess()) { showPaywall(); return; }
 
         mainView.classList.add('fade-out');
@@ -1158,13 +1176,76 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
     function continueChat(message) {
         if (!message.trim()) return;
+
+        if (!currentUser) {
+            addMessage(message, 'user');
+            addWelcomeLoginMessage();
+            return;
+        }
+
         if (!hasAccess()) { showPaywall(); return; }
         addMessage(message, 'user');
         getBotResponse(message);
         chatInput.style.height = 'auto';
     }
 
-    // ── Message rendering ──────────────────────────────────────
+    // Message de bienvenue avec CTA connexion
+    function addWelcomeLoginMessage() {
+        const indicator = document.getElementById('typingIndicator');
+        if (indicator) indicator.remove();
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message bot';
+
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.innerHTML = '<i data-lucide="bot"></i>';
+
+        const content = document.createElement('div');
+        content.className = 'message-content';
+        content.innerHTML = `
+            <p>👋 <strong>Bienvenue sur PROCURA !</strong></p>
+            <p>Pour poser votre question et accéder à notre assistant expert en marchés publics, veuillez vous <strong>connecter</strong> ou <strong>créer votre compte</strong>.</p>
+            <p>Après connexion, vous bénéficierez d'<strong>une question gratuite</strong> pour découvrir PROCURA.</p>
+            <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+                <button onclick="window.goToStep('stepForm'); document.getElementById('paywallModal').classList.remove('hidden');" style="background:var(--color-gold);color:#111;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem;">🔑 Se connecter</button>
+                <button onclick="window.goToStep('stepSignUp'); document.getElementById('paywallModal').classList.remove('hidden');" style="background:transparent;color:var(--color-gold);border:2px solid var(--color-gold);padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem;">✨ Créer un compte</button>
+            </div>
+        `;
+
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(content);
+        chatHistory.appendChild(messageDiv);
+        lucide.createIcons({ root: messageDiv });
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    // Message d'invitation à choisir un plan après la question gratuite
+    function addUpgradePromptMessage() {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message bot';
+
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.innerHTML = '<i data-lucide="bot"></i>';
+
+        const content = document.createElement('div');
+        content.className = 'message-content';
+        content.innerHTML = `
+            <p>🔒 <strong>Votre question gratuite a été utilisée.</strong></p>
+            <p>Pour continuer à bénéficier de l'expertise PROCURA en marchés publics, choisissez le plan qui correspond à vos besoins :</p>
+            <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+                <button onclick="window.goToStep('stepPlans'); document.getElementById('paywallModal').classList.remove('hidden');" style="background:var(--color-gold);color:#111;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem;">🌟 Voir les plans</button>
+            </div>
+        `;
+
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(content);
+        chatHistory.appendChild(messageDiv);
+        lucide.createIcons({ root: messageDiv });
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
     function addMessage(text, sender) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${sender}`;
@@ -1381,6 +1462,12 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             }
 
             updateCounter();
+
+            // Si le quota est maintenant épuisé, afficher un message d'invitation aux plans
+            if (!hasAccess()) {
+                addUpgradePromptMessage();
+                lockInput();
+            }
 
             conversationHistory.push({
                 role: 'model',
