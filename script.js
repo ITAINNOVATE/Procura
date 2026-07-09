@@ -186,16 +186,20 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
     let knowledgeBase = null;
 
 
-    // ── Freemium — Compteur de questions gratuites (Reset journalier) ─────────
-    const FREE_LIMIT = 1;
+    // ── Freemium — Compteur de questions ──────────────────────────────────────
+    // Non connecté  : 0 question — connexion obligatoire
+    // Connecté free : 1 question gratuite/jour
+    // Plans payants : limites spécifiques
+    const FREE_LIMIT_LOGGED_IN = 1; // 1 question gratuite pour plan free
+    const FREE_LIMIT = FREE_LIMIT_LOGGED_IN;
     let questionsUsed = 0;
-    
+
     function initQuota() {
         const lastDate = safeStorage.getItem('procura_last_date');
         const today = new Date().toLocaleDateString();
-        
+
         if (lastDate !== today) {
-            // Nouveau jour : reset
+            // Nouveau jour : reset du compteur
             safeStorage.setItem('procura_q_count', '0');
             safeStorage.setItem('procura_last_date', today);
             questionsUsed = 0;
@@ -205,6 +209,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
     }
 
     initQuota();
+
 
     // ── Chargement asynchrone de la base documentaire ────────
     async function loadKnowledgeBase() {
@@ -318,21 +323,20 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
     loadKnowledgeBase();
 
     function hasAccess() {
+        // Non connecté : aucun accès, connexion obligatoire
+        if (!currentUser) return false;
+
         if (!userProfile) {
-            return questionsUsed < FREE_LIMIT;
+            // Connecté mais profil pas encore chargé : bénéfice du doute
+            return questionsUsed < FREE_LIMIT_LOGGED_IN;
         }
 
         const plan = userProfile.plan || 'free';
-        if (plan === 'monthly' || plan === 'annual') {
-            return true;
-        }
-        if (plan === 'weekly') {
-            return questionsUsed < 20;
-        }
-        if (plan === 'daily') {
-            return questionsUsed < 3;
-        }
-        return questionsUsed < FREE_LIMIT;
+        if (plan === 'monthly' || plan === 'annual') return true;
+        if (plan === 'weekly') return questionsUsed < 20;
+        if (plan === 'daily')  return questionsUsed < 3;
+        // Plan gratuit connecté : 1 question/jour
+        return questionsUsed < FREE_LIMIT_LOGGED_IN;
     }
 
     function updateCounter() {
@@ -340,28 +344,35 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         const counterEl   = document.getElementById('questionCounter');
         if (!counterText) return;
 
-        let plan = 'free';
-        let limit = FREE_LIMIT;
+        // Non connecté : inviter à se connecter
+        if (!currentUser) {
+            counterText.innerHTML = '🔐 <strong>Connexion requise</strong> — <span style="font-size:0.85em">Créez un compte pour accéder à Procura</span>';
+            if (counterEl) counterEl.classList.add('counter-exhausted');
+            return;
+        }
+
+        let limit = FREE_LIMIT_LOGGED_IN;
 
         if (userProfile) {
-            plan = userProfile.plan || 'free';
+            const plan = userProfile.plan || 'free';
             if (plan === 'monthly' || plan === 'annual') {
                 counterText.innerHTML = `🌟 <strong>Plan ${plan === 'monthly' ? 'Mensuel' : 'Annuel'}</strong> — Questions illimitées`;
                 if (counterEl) counterEl.classList.remove('counter-exhausted');
                 return;
             }
             if (plan === 'weekly') limit = 20;
-            if (plan === 'daily') limit = 3;
+            else if (plan === 'daily') limit = 3;
+            // else free = 1
         }
 
         const remaining = Math.max(0, limit - questionsUsed);
 
         if (remaining === 0) {
-            counterText.innerHTML = '🔒 Quota gratuit épuisé — <strong class="choose-plan-trigger" onclick="window.goToStep(\'stepPlans\'); document.getElementById(\'paywallModal\').classList.remove(\'hidden\');">Choisissez un plan</strong> pour continuer';
+            counterText.innerHTML = '🔒 Quota épuisé — <strong class="choose-plan-trigger" onclick="window.goToStep(\'stepPlans\'); document.getElementById(\'paywallModal\').classList.remove(\'hidden\');">Choisissez un plan</strong> pour continuer';
             if (counterEl) counterEl.classList.add('counter-exhausted');
         } else {
             const color = remaining === 1 ? '#e55' : 'var(--color-gold)';
-            counterText.innerHTML = `💡 <strong style="color:${color}">${remaining} question${remaining > 1 ? 's' : ''} ${plan === 'free' ? 'gratuite' : 'restante'}${remaining > 1 ? 's' : ''}</strong> restante${remaining > 1 ? 's' : ''}`;
+            counterText.innerHTML = `💬 <strong style="color:${color}">${remaining} question gratuite</strong> restante aujourd'hui`;
             if (counterEl) counterEl.classList.remove('counter-exhausted');
         }
     }
@@ -371,7 +382,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         const input = document.getElementById('chatInput');
         const btn   = document.getElementById('chatSendBtn');
         if (box)   box.classList.add('input-locked');
-        if (input) { input.disabled = true; input.placeholder = 'Inscrivez-vous pour continuer...'; }
+        if (input) { input.disabled = true; input.placeholder = currentUser ? 'Quota épuisé — choisissez un plan pour continuer' : 'Connectez-vous pour accéder à Procura...'; }
         if (btn)   btn.disabled = true;
     }
 
@@ -521,7 +532,17 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         if (guestActions) guestActions.classList.remove('hidden');
         if (userProfileEl) userProfileEl.classList.add('hidden');
 
+        // Connexion obligatoire : verrouiller immédiatement le chat
+        lockInput();
         updateCounter();
+
+        // Ouvrir la modale de connexion/inscription
+        const modal = document.getElementById('paywallModal');
+        if (modal && modal.classList.contains('hidden')) {
+            setTimeout(() => {
+                showPaywall();
+            }, 300); // Léger délai pour laisser la page se rendre
+        }
     }
 
     function getPlanLabel(plan) {
