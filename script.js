@@ -972,6 +972,14 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             } catch (diagErr) {
                 diagEl.textContent += `ÉCHEC ❌\n- Erreur: ${diagErr.message || diagErr}\n`;
             }
+
+            // Exposer les logs console accumulés
+            diagEl.textContent += `\n📋 LOGS CONSOLE RÉCENTS :\n`;
+            if (window.CONSOLE_LOGS && window.CONSOLE_LOGS.length > 0) {
+                diagEl.textContent += window.CONSOLE_LOGS.join('\n');
+            } else {
+                diagEl.textContent += `Aucun log capturé.\n`;
+            }
         };
 
         let isResolved = false;

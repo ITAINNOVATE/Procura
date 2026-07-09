@@ -5,15 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PROCURA - Assistant des marchés publics</title>
     
-    <!-- Global Storage Blocker Bypass -->
+    <!-- Global Storage Blocker & Console Logger Bypass -->
     <script>
         (function() {
+            // 1. Capture Console Logs
+            window.CONSOLE_LOGS = [];
+            const log = console.log;
+            const err = console.error;
+            const warn = console.warn;
+            const formatArgs = (args) => {
+                return args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+            };
+            console.log = function(...args) {
+                window.CONSOLE_LOGS.push(`[LOG] ${formatArgs(args)}`);
+                log.apply(console, args);
+            };
+            console.error = function(...args) {
+                window.CONSOLE_LOGS.push(`[ERR] ${formatArgs(args)}`);
+                err.apply(console, args);
+            };
+            console.warn = function(...args) {
+                window.CONSOLE_LOGS.push(`[WRN] ${formatArgs(args)}`);
+                warn.apply(console, args);
+            };
+
+            // 2. Storage Blocker Bypass
             try {
                 const testKey = '__storage_test__';
                 window.localStorage.setItem(testKey, testKey);
                 window.localStorage.removeItem(testKey);
             } catch (e) {
-                console.warn("[PROCURA] localStorage is blocked by browser/antivirus. Injecting safe memory storage mocks.", e);
+                console.warn("localStorage is blocked by browser/antivirus. Injecting safe memory storage mocks.", e);
                 const makeMockStorage = () => {
                     const store = {};
                     return {
@@ -31,7 +53,7 @@
                     Object.defineProperty(window, 'localStorage', { value: mockLocal, configurable: true, enumerable: true, writable: true });
                     Object.defineProperty(window, 'sessionStorage', { value: mockSession, configurable: true, enumerable: true, writable: true });
                 } catch (err) {
-                    console.error("[PROCURA] Failed to redefine storage properties:", err);
+                    console.error("Failed to redefine storage properties:", err);
                     window.localStorage = mockLocal;
                     window.sessionStorage = mockSession;
                 }
@@ -743,6 +765,6 @@
     </div>
 
     <script src="/api/app-config.js"></script>
-    <script src="script.js?v=20260708_v10"></script>
+    <script src="script.js?v=20260708_v11"></script>
 </body>
 </html>
