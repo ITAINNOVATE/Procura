@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ══════════════════════════════════════════════════════════
     //  CONFIGURATION FEDAPAY (LIVE)
     // ══════════════════════════════════════════════════════════
-    const FEDAPAY_PUBLIC_KEY = 'pk_live_bKEHs4ybJfYaaDTgZlOoLv0O';
+    const FEDAPAY_PUBLIC_KEY = (window.CONFIG && window.CONFIG.FEDAPAY_PUBLIC_KEY) ? window.CONFIG.FEDAPAY_PUBLIC_KEY : 'pk_live_bKEHs4ybJfYaaDTgZlOoLv0O';
     
     // Tarifs en FCFA pour chaque plan
     const PLAN_PRICES = {

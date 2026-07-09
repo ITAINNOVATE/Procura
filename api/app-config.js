@@ -4,9 +4,12 @@ export default async function handler(req, res) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://yhutkoevddnydlvoqeqj.supabase.co';
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
 
+  const fedapayPubKey = process.env.FEDAPAY_PUBLIC_KEY || 'pk_live_bKEHs4ybJfYaaDTgZlOoLv0O';
+
   const jsContent = `window.CONFIG = {
     SUPABASE_URL: "${url}",
-    SUPABASE_ANON_KEY: "${key}"
+    SUPABASE_ANON_KEY: "${key}",
+    FEDAPAY_PUBLIC_KEY: "${fedapayPubKey}"
   };`;
 
   res.setHeader('Content-Type', 'application/javascript');
