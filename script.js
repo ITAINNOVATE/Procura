@@ -1408,9 +1408,13 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
         // Recherche du contexte pertinent dans la base locale (RAG)
         const retrievedContext = searchKnowledge(userMessage);
-        const dynamicSystemPrompt = retrievedContext 
-            ? `${SYSTEM_PROMPT}\n\n${retrievedContext}`
-            : SYSTEM_PROMPT;
+        let dynamicSystemPrompt = SYSTEM_PROMPT;
+        if (retrievedContext) {
+            dynamicSystemPrompt += `\n\n${retrievedContext}`;
+            dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION FINALE : Utilise STRICTEMENT ET UNIQUEMENT le bloc <context> ci-dessus pour ta réponse. N'utilise aucune autre information de ton apprentissage interne.`;
+        } else {
+            dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION FINALE : AUCUN CONTEXTE DOCUMENTAIRE N'A ÉTÉ TROUVÉ POUR CETTE QUESTION DANS LA BASE OFFICIELLE. Tu as l'INTERDICTION de fournir une réponse technique issue de tes connaissances internes. Tu DOIS informer l'utilisateur que l'information n'est pas dans ta base et l'inviter à préciser sa question, ou à consulter directement le site du régulateur concerné.`;
+        }
 
         const isVercel = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
