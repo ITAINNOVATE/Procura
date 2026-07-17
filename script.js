@@ -194,21 +194,65 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
     // ── Freemium — Compteur de questions ──────────────────────────────────────
     // Non connecté  : 0 question — connexion obligatoire
-    // Connecté free : 1 question gratuite/jour
-    // Plans payants : limites spécifiques
-    const FREE_LIMIT_LOGGED_IN = 1; // 1 question gratuite pour plan free
+    // Connecté free : 1 question gratuite (unique, pas de reset)
+    // Journalier    : 3 questions / 24h (reset après 24h)
+    // Hebdomadaire  : 20 questions / 7 jours (reset après 7 jours)
+    // Mensuel/Annuel: Illimité
+    const FREE_LIMIT_LOGGED_IN = 1;
     const FREE_LIMIT = FREE_LIMIT_LOGGED_IN;
     let questionsUsed = 0;
 
+    // Vérifie si la période du plan est expirée et remet à zéro si besoin
+    function checkAndResetPeriod(plan) {
+        const startDateStr = safeStorage.getItem('procura_plan_start');
+        const now = Date.now();
+
+        if (!startDateStr) {
+            // Pas de date de début enregistrée, on initialise maintenant
+            safeStorage.setItem('procura_plan_start', now.toString());
+            safeStorage.setItem('procura_q_count', '0');
+            questionsUsed = 0;
+            return;
+        }
+
+        const startDate = parseInt(startDateStr);
+        const elapsed = now - startDate;
+        const ONE_DAY = 24 * 60 * 60 * 1000;
+        const ONE_WEEK = 7 * ONE_DAY;
+
+        let periodExpired = false;
+        if (plan === 'daily' && elapsed >= ONE_DAY) periodExpired = true;
+        if (plan === 'weekly' && elapsed >= ONE_WEEK) periodExpired = true;
+
+        if (periodExpired) {
+            // On renouvelle la période et on remet le compteur à 0
+            safeStorage.setItem('procura_plan_start', now.toString());
+            safeStorage.setItem('procura_q_count', '0');
+            questionsUsed = 0;
+            // Mettre à jour Supabase si connecté
+            if (supabase && currentUser) {
+                supabase.from('profiles').update({ questions_asked: 0 }).eq('id', currentUser.id).then(() => {});
+            }
+        } else {
+            questionsUsed = parseInt(safeStorage.getItem('procura_q_count') || '0');
+        }
+    }
+
     function initQuota() {
+        // Pour le plan free, on réinitialise simplement le compteur local chaque jour
+        // (la vraie gestion de période se fait dans checkAndResetPeriod pour les plans payants)
         const lastDate = safeStorage.getItem('procura_last_date');
         const today = new Date().toLocaleDateString();
-
         if (lastDate !== today) {
-            // Nouveau jour : reset du compteur
-            safeStorage.setItem('procura_q_count', '0');
             safeStorage.setItem('procura_last_date', today);
-            questionsUsed = 0;
+            // Reset uniquement pour les profils free (les plans payants sont gérés ailleurs)
+            const plan = userProfile ? (userProfile.plan || 'free') : 'free';
+            if (plan === 'free') {
+                safeStorage.setItem('procura_q_count', '0');
+                questionsUsed = 0;
+            } else {
+                questionsUsed = parseInt(safeStorage.getItem('procura_q_count') || '0');
+            }
         } else {
             questionsUsed = parseInt(safeStorage.getItem('procura_q_count') || '0');
         }
@@ -234,8 +278,26 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
     }
 
     // ── Moteur de recherche local (RAG Client-Side) ──────────
+    // Identifiants des catégories "bailleurs" dans la knowledge base
+    const BAILLEURS_KEYWORDS = ['banque mondiale', 'world bank', 'bad', 'afdb', 'boad', 'bidc', 'afd', 'bailleur', 'isdb', 'bid'];
+
     function searchKnowledge(query, limit = 4) {
         if (!knowledgeBase || !query) return "";
+
+        // ── FILTRAGE PAR PLAN ─────────────────────────────────────
+        const currentPlan = userProfile ? (userProfile.plan || 'free') : 'free';
+        const userCountry = (userProfile && (currentUser && currentUser.user_metadata && currentUser.user_metadata.country))
+            ? currentUser.user_metadata.country.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+            : null;
+
+        // Définir le périmètre d'accès selon le plan
+        const accessLevel = {
+            // free/daily = accès national uniquement, sans bailleurs
+            // weekly = accès multi-pays, sans bailleurs
+            // monthly/annual = accès total (multi-pays + bailleurs)
+            allowMultiCountry: ['weekly', 'monthly', 'annual'].includes(currentPlan),
+            allowBailleurs: ['monthly', 'annual'].includes(currentPlan)
+        };
 
         // Normalisation et tokenisation simple (suppression accents, ponctuation)
         const normalize = (str) => {
@@ -251,8 +313,35 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         const queryWords = normalize(query);
         if (queryWords.length === 0) return "";
 
+        // Filtrer d'abord les chunks selon le plan
+        let filteredBase = knowledgeBase.filter(chunk => {
+            const cat = (chunk.category || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+            // Vérifier si c'est un document de bailleur
+            const isBailleur = BAILLEURS_KEYWORDS.some(kw => cat.includes(kw));
+            if (isBailleur && !accessLevel.allowBailleurs) return false; // Bloquer pour free/daily/weekly
+
+            // Pour plan daily uniquement : filtrer au pays de l'utilisateur
+            if (currentPlan === 'daily' && userCountry) {
+                // Autoriser uniquement si la catégorie correspond au pays de l'utilisateur
+                // ou si c'est un document générique (sans pays spécifique dans la catégorie)
+                const countryList = ['benin', 'togo', 'niger', 'burkina', 'senegal', 'mali', 'guinee', 'congo', 'cameroun', 'gabon', 'rdc', 'tchad', 'centrafique', 'ivoire'];
+                const chunkHasCountry = countryList.some(c => cat.includes(c));
+                if (chunkHasCountry) {
+                    // Vérifier si le pays du chunk correspond au pays de l'utilisateur
+                    const matchesUserCountry = cat.includes(userCountry) ||
+                        (userCountry.includes('benin') && cat.includes('benin')) ||
+                        (userCountry.includes('togo') && cat.includes('togo')) ||
+                        (userCountry.includes('ivoire') && (cat.includes('ivoire') || cat.includes('rci')));
+                    if (!matchesUserCountry) return false;
+                }
+            }
+
+            return true;
+        });
+
         // Calcul de pertinence pour chaque chunk
-        const scoredChunks = knowledgeBase.map(chunk => {
+        const scoredChunks = filteredBase.map(chunk => {
             let score = 0;
             const contentNorm = normalize(chunk.content || "");
             const titleNorm = normalize(chunk.title || "");
@@ -272,7 +361,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 }
 
                 if (matchesCategory) {
-                    score += 100; // Big bonus for category match!
+                    score += 100;
                     categoryMatch = true;
                 }
 
@@ -284,7 +373,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 });
                 score += Math.min(titleMatches, 15);
 
-                // Content match (cap to avoid long files dominating)
+                // Content match
                 let contentMatches = 0;
                 contentNorm.forEach(w => {
                     if (w === word) contentMatches += 1;
@@ -293,14 +382,14 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 score += Math.min(contentMatches, 5);
             });
 
-            // If the query mentions a country but this chunk is from a different country category, penalize it!
+            // Penalize mismatching country
             const countries = ["benin", "niger", "congo", "cameroun", "centrafique", "centrafrique", "ivoire", "rci"];
             const queryHasCountry = queryWords.some(w => countries.includes(w));
             const chunkCategory = chunk.category.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             const chunkHasCountry = countries.some(c => chunkCategory.includes(c));
 
             if (queryHasCountry && chunkHasCountry && !categoryMatch) {
-                score -= 80; // Penalize mismatching country
+                score -= 80;
             }
 
             return { chunk, score };
@@ -316,7 +405,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         if (results.length === 0) return "";
 
         // Construction du bloc de contexte
-        let contextMarkdown = "\n\n<context>\nVoici des informations et règles issues des documents officiels de Bass Consulting et des régulateurs. Utilise-les pour répondre avec précision :\n\n";
+        let contextMarkdown = "\n\n<context>\nVoici des informations et règles issues des documents officiels. Utilise-les pour répondre avec précision :\n\n";
         results.forEach((chunk, index) => {
             contextMarkdown += `--- SOURCE ${index + 1} : ${chunk.title} [Catégorie: ${chunk.category}] (Fichier: ${chunk.source}) ---\n`;
             contextMarkdown += `${chunk.content}\n\n`;
@@ -358,27 +447,30 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         }
 
         let limit = FREE_LIMIT_LOGGED_IN;
+        let periodLabel = 'aujourd\'hui';
 
         if (userProfile) {
             const plan = userProfile.plan || 'free';
             if (plan === 'monthly' || plan === 'annual') {
-                counterText.innerHTML = `🌟 <strong>Plan ${plan === 'monthly' ? 'Mensuel' : 'Annuel'}</strong> — Questions illimitées`;
+                const planLabel = plan === 'monthly' ? 'Mensuel' : 'Annuel';
+                counterText.innerHTML = `🌟 <strong>Plan ${planLabel}</strong> — Questions <strong>illimitées</strong>`;
                 if (counterEl) counterEl.classList.remove('counter-exhausted');
                 return;
             }
-            if (plan === 'weekly') limit = 20;
-            else if (plan === 'daily') limit = 3;
-            // else free = 1
+            if (plan === 'weekly') { limit = 20; periodLabel = 'cette semaine'; }
+            else if (plan === 'daily') { limit = 3; periodLabel = 'aujourd\'hui'; }
         }
 
         const remaining = Math.max(0, limit - questionsUsed);
 
         if (remaining === 0) {
-            counterText.innerHTML = '🔒 Quota épuisé — <strong class="choose-plan-trigger" onclick="window.goToStep(\'stepPlans\'); document.getElementById(\'paywallModal\').classList.remove(\'hidden\');">Choisissez un plan</strong> pour continuer';
+            const period = userProfile && userProfile.plan === 'weekly' ? 'cette semaine' : userProfile && userProfile.plan === 'daily' ? 'aujourd\'hui' : 'aujourd\'hui';
+            counterText.innerHTML = `🔒 Quota épuisé ${period} — <strong class="choose-plan-trigger" onclick="window.goToStep('stepPlans'); document.getElementById('paywallModal').classList.remove('hidden');">Passer au plan supérieur</strong>`;
             if (counterEl) counterEl.classList.add('counter-exhausted');
         } else {
-            const color = remaining === 1 ? '#e55' : 'var(--color-gold)';
-            counterText.innerHTML = `💬 <strong style="color:${color}">${remaining} question gratuite</strong> restante aujourd'hui`;
+            const color = remaining <= 2 ? '#e55' : 'var(--color-gold)';
+            const plural = remaining > 1 ? 's' : '';
+            counterText.innerHTML = `💬 <strong style="color:${color}">${remaining} question${plural}</strong> restante${plural} ${periodLabel}`;
             if (counterEl) counterEl.classList.remove('counter-exhausted');
         }
     }
@@ -484,6 +576,12 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             if (userProfile && userProfile.questions_asked !== undefined) {
                 questionsUsed = userProfile.questions_asked;
                 safeStorage.setItem('procura_q_count', questionsUsed);
+            }
+
+            // Vérifier et réinitialiser le quota selon la période du plan
+            const plan = userProfile ? (userProfile.plan || 'free') : 'free';
+            if (plan === 'daily' || plan === 'weekly') {
+                checkAndResetPeriod(plan);
             }
         } catch (err) {
             console.error("Error syncing user profile:", err);
@@ -740,14 +838,25 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                                 
                                 if (error) throw error;
                                 
+                                // ✅ Enregistrer la date de début du plan et réinitialiser le quota
+                                const now = Date.now();
+                                safeStorage.setItem('procura_plan_start', now.toString());
+                                safeStorage.setItem('procura_q_count', '0');
+                                questionsUsed = 0;
+                                
                                 // Rafraîchir le profil
                                 await syncUserProfile();
                                 updateUIForLoggedIn();
+                                updateCounter();
                                 
                                 // Fermer la modale et réinitialiser
                                 const modal = document.getElementById('paywallModal');
                                 if (modal) modal.classList.add('hidden');
-                                alert(`Félicitations ! Votre paiement a été validé avec succès. Votre abonnement au plan ${planName} est désormais actif et toutes les fonctionnalités sont débloquées.`);
+                                
+                                // Afficher un message de confirmation premium
+                                const planLabels = { daily: 'Journalier (3 questions/jour)', weekly: 'Hebdomadaire (20 questions/semaine)', monthly: 'Mensuel (illimité)', annual: 'Annuel (illimité)' };
+                                const fullPlanLabel = planLabels[selectedPlan] || planName;
+                                alert(`🎉 Félicitations !\n\nVotre paiement de ${PLAN_PRICES[selectedPlan].toLocaleString('fr-FR')} FCFA a été validé avec succès.\n\nVotre abonnement "${fullPlanLabel}" est désormais actif. Profitez pleinement de PROCURA !`);
                                 
                             } catch (err) {
                                 console.error("Erreur lors de la mise à jour du profil après paiement:", err);
