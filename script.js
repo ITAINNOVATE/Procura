@@ -828,15 +828,29 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                         if (submitBtn) {
                             submitBtn.textContent = "Paiement réussi ! Activation...";
                         }
-                        // Sauvegarder dans Supabase
-                        if (supabase && currentUser) {
+                        // Sauvegarder le plan via l'endpoint serveur sécurisé (bypass RLS)
+                        if (currentUser) {
                             try {
-                                const { error } = await supabase
-                                    .from('profiles')
-                                    .update({ plan: selectedPlan })
-                                    .eq('id', currentUser.id);
-                                
-                                if (error) throw error;
+                                // Récupérer le token de session de l'utilisateur pour authentifier la requête
+                                const sessionToken = supabase.auth ? 
+                                    (await supabase.auth.getSession()).data?.session?.access_token : null;
+
+                                const activateRes = await fetch('/api/activate-plan', {
+                                    method: 'POST',
+                                    headers: { 
+                                        'Content-Type': 'application/json',
+                                        'Authorization': sessionToken ? `Bearer ${sessionToken}` : ''
+                                    },
+                                    body: JSON.stringify({
+                                        userId: currentUser.id,
+                                        plan: selectedPlan
+                                    })
+                                });
+
+                                if (!activateRes.ok) {
+                                    const errData = await activateRes.json().catch(() => ({}));
+                                    throw new Error(errData.error || `HTTP ${activateRes.status}`);
+                                }
                                 
                                 // ✅ Enregistrer la date de début du plan et réinitialiser le quota
                                 const now = Date.now();
@@ -849,25 +863,24 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                                 updateUIForLoggedIn();
                                 updateCounter();
                                 
-                                // Fermer la modale et réinitialiser
+                                // Fermer la modale
                                 const modal = document.getElementById('paywallModal');
                                 if (modal) modal.classList.add('hidden');
                                 
-                                // Afficher un message de confirmation premium
+                                // Message de confirmation premium
                                 const planLabels = { daily: 'Journalier (3 questions/jour)', weekly: 'Hebdomadaire (20 questions/semaine)', monthly: 'Mensuel (illimité)', annual: 'Annuel (illimité)' };
                                 const fullPlanLabel = planLabels[selectedPlan] || planName;
                                 alert(`🎉 Félicitations !\n\nVotre paiement de ${PLAN_PRICES[selectedPlan].toLocaleString('fr-FR')} FCFA a été validé avec succès.\n\nVotre abonnement "${fullPlanLabel}" est désormais actif. Profitez pleinement de PROCURA !`);
                                 
                             } catch (err) {
-                                console.error("Erreur lors de la mise à jour du profil après paiement:", err);
+                                console.error("Erreur lors de l'activation du plan:", err);
                                 if (errorEl) {
-                                    errorEl.textContent = "Paiement réussi, mais erreur lors de l'activation du compte. Veuillez contacter le support technique avec une capture d'écran.";
+                                    errorEl.textContent = "Paiement réussi, mais erreur lors de l'activation. Contactez le support en précisant votre email et votre plan.";
                                     errorEl.classList.remove('hidden');
                                 }
                             }
                         } else {
-                             // Si jamais l'utilisateur n'est pas connecté au moment du retour
-                             alert(`Paiement réussi mais session expirée. Veuillez vous reconnecter pour profiter de votre abonnement.`);
+                            alert(`Paiement réussi mais session expirée. Veuillez vous reconnecter pour profiter de votre abonnement.`);
                         }
                     } else {
                         // Cas non géré (ex: pending)
@@ -1574,8 +1587,8 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 },
                 contents: conversationHistory,
                 generationConfig: {
-                    temperature: 0.4,
-                    maxOutputTokens: 2048,
+                    temperature: 0.3,
+                    maxOutputTokens: 8192,
                     topP: 0.9,
                     thinkingConfig: { thinkingBudget: 0 }  // Désactive le thinking pour réponses rapides
                 }

@@ -3,6 +3,10 @@
     {
       "source": "/api/supabase/:path*",
       "destination": "/api/supabase.js"
+    },
+    {
+      "source": "/api/activate-plan",
+      "destination": "/api/activate-plan.js"
     }
   ]
 }
