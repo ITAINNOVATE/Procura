@@ -704,17 +704,28 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                     firstname: currentUser && currentUser.user_metadata ? currentUser.user_metadata.first_name || 'PROCURA' : 'PROCURA'
                 },
                 onComplete: async function(resp) {
+                    console.log("FedaPay transaction response:", resp);
                     const reason = resp.reason;
-                    if (reason === FedaPay.DIALOG_DISMISSED) {
+                    
+                    // Vérifier si le paiement a été annulé ou fermé
+                    if (reason === FedaPay.DIALOG_DISMISSED || reason === 'dialog_dismissed') {
                         if (submitBtn) {
                             submitBtn.disabled = false;
                             submitBtn.textContent = "Confirmer et Régler";
                         }
                         if (errorEl) {
-                            errorEl.textContent = "Paiement annulé.";
+                            errorEl.textContent = "Paiement annulé ou fenêtre fermée.";
                             errorEl.classList.remove('hidden');
                         }
-                    } else if (reason === FedaPay.CHECKOUT_COMPLETED) {
+                        return;
+                    } 
+                    
+                    // Vérifier si le paiement est réussi (on vérifie la raison et le statut de la transaction)
+                    const isCompleted = reason === FedaPay.CHECKOUT_COMPLETED || 
+                                        reason === 'checkout_completed' || 
+                                        (resp.transaction && resp.transaction.status === 'approved');
+
+                    if (isCompleted) {
                         // Paiement réussi
                         if (submitBtn) {
                             submitBtn.textContent = "Paiement réussi ! Activation...";
@@ -722,10 +733,12 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                         // Sauvegarder dans Supabase
                         if (supabase && currentUser) {
                             try {
-                                await supabase
+                                const { error } = await supabase
                                     .from('profiles')
                                     .update({ plan: selectedPlan })
                                     .eq('id', currentUser.id);
+                                
+                                if (error) throw error;
                                 
                                 // Rafraîchir le profil
                                 await syncUserProfile();
@@ -734,15 +747,28 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                                 // Fermer la modale et réinitialiser
                                 const modal = document.getElementById('paywallModal');
                                 if (modal) modal.classList.add('hidden');
-                                alert(`Félicitations ! Votre abonnement au plan ${planName} est désormais actif.`);
+                                alert(`Félicitations ! Votre paiement a été validé avec succès. Votre abonnement au plan ${planName} est désormais actif et toutes les fonctionnalités sont débloquées.`);
                                 
                             } catch (err) {
                                 console.error("Erreur lors de la mise à jour du profil après paiement:", err);
                                 if (errorEl) {
-                                    errorEl.textContent = "Paiement réussi, mais erreur lors de l'activation. Veuillez contacter le support.";
+                                    errorEl.textContent = "Paiement réussi, mais erreur lors de l'activation du compte. Veuillez contacter le support technique avec une capture d'écran.";
                                     errorEl.classList.remove('hidden');
                                 }
                             }
+                        } else {
+                             // Si jamais l'utilisateur n'est pas connecté au moment du retour
+                             alert(`Paiement réussi mais session expirée. Veuillez vous reconnecter pour profiter de votre abonnement.`);
+                        }
+                    } else {
+                        // Cas non géré (ex: pending)
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = "Confirmer et Régler";
+                        }
+                        if (errorEl) {
+                            errorEl.textContent = "Le paiement est en attente ou n'a pas pu être validé. Veuillez réessayer ou contacter le support.";
+                            errorEl.classList.remove('hidden');
                         }
                     }
                 }
