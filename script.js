@@ -1555,13 +1555,35 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             parts: [{ text: userMessage }]
         });
 
+        // ── Vérification de l'accès au contenu selon le plan ──────
+        const currentPlan = userProfile ? (userProfile.plan || 'free') : 'free';
+        const allowsBailleurs = ['monthly', 'annual'].includes(currentPlan);
+        const allowsMultiCountry = ['weekly', 'monthly', 'annual'].includes(currentPlan);
+
+        // Détecter si la question porte sur les bailleurs (BM, BAD, AFD, etc.)
+        const bailleurKeywords = ['banque mondiale', 'world bank', 'bad ', 'b.a.d', 'banque africaine', 'afdb', 'boad', 'bidc', 'afd ', 'agence française', 'isdb', 'bid ', 'banque islamique', 'bailleur', 'fmi', 'fonds monétaire'];
+        const queryLower = userMessage.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const queryAboutBailleur = bailleurKeywords.some(kw => queryLower.includes(kw.normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+
+        // Détecter si la question porte sur un pays spécifique hors du pays de l'utilisateur (pour plan daily)
+        const planLabelsForMsg = { free: 'Gratuit', daily: 'Journalier', weekly: 'Hebdomadaire', monthly: 'Mensuel', annual: 'Annuel' };
+        const currentPlanLabel = planLabelsForMsg[currentPlan] || currentPlan;
+
         // Recherche du contexte pertinent dans la base locale (RAG)
         const retrievedContext = searchKnowledge(userMessage);
         let dynamicSystemPrompt = SYSTEM_PROMPT;
-        if (retrievedContext) {
+
+        // Cas 1 : Question sur les bailleurs mais plan ne les inclut pas
+        if (queryAboutBailleur && !allowsBailleurs) {
+            dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION SPÉCIALE — RESTRICTION DE PLAN : L'utilisateur est abonné au plan "${currentPlanLabel}" qui ne comprend PAS l'accès aux documents des Institutions Financières Internationales (Banque Mondiale, BAD, BOAD, AFD, etc.). Tu DOIS l'informer poliment et professionnellement de cette limitation. Indique-lui clairement que pour accéder aux procédures et règlements des bailleurs internationaux, il doit passer au Plan Mensuel ou Annuel de PROCURA. Propose-lui de reformuler sa question sur les réglementations nationales (ARMP, ARCOP...) qui sont incluses dans son plan. N'invente aucune information sur les bailleurs.`;
+        }
+        // Cas 2 : Contexte documentaire trouvé
+        else if (retrievedContext) {
             dynamicSystemPrompt += `\n\n${retrievedContext}`;
-            dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION FINALE : Analyse ces documents avec la plus grande rigueur. Formule ta réponse UNIQUEMENT à partir de ce bloc <context>. Démontre ton expertise de haut niveau sans jamais inventer d'informations.`;
-        } else {
+            dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION FINALE : Analyse ces documents avec la plus grande rigueur. Formule ta réponse UNIQUEMENT à partir de ce bloc <context>. Démontre ton expertise de haut niveau sans jamais inventer d'informations. Assure-toi de compléter TOUTES les sections de ta réponse, notamment les "Recommandations Bass Consulting" en fin de réponse.`;
+        }
+        // Cas 3 : Aucun document trouvé
+        else {
             dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION FINALE : AUCUN DOCUMENT OFFICIEL N'A ÉTÉ TROUVÉ DANS LA BASE DE PROCURA POUR CETTE REQUÊTE. Règle absolue : N'invente aucune procédure et n'utilise pas tes connaissances générales. Formule une réponse extrêmement polie et prestigieuse indiquant que cette information spécifique n'est pas répertoriée dans notre référentiel actuel. Suggère courtoisement à l'utilisateur de reformuler sa requête ou de consulter le portail officiel du régulateur compétent pour une parfaite sécurité juridique.`;
         }
 
