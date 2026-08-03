@@ -82,7 +82,7 @@ def get_category(root_path):
                 return "BAD (Banque Africaine de Développement)"
             elif "BID" in fn_upper or "ISDB" in fn_upper:
                 return "BID (Banque Islamique de Développement)"
-            # Thématiques
+            # Thématiques et autres
             elif "THEMATIQUES" in fn_upper or "THÉMATIQUES" in fn_upper:
                 return "Thématiques"
             elif "CAROUSSELS" in fn_upper or "CAROUS" in fn_upper:
@@ -91,6 +91,8 @@ def get_category(root_path):
                 return "Audit et Contrôle des Finances Publiques"
             elif "DURABILITE" in fn_upper or "DURABILITÉ" in fn_upper:
                 return "Marchés Durables"
+            elif "AUTRES DOCUMENTS" in fn_upper:
+                return "Autres Documents"
     return "Général"
 
 def extract_pdf_text(file_path):
