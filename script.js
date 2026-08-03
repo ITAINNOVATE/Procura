@@ -1560,12 +1560,18 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         const allowsBailleurs = ['monthly', 'annual'].includes(currentPlan);
         const allowsMultiCountry = ['weekly', 'monthly', 'annual'].includes(currentPlan);
 
-        // Détecter si la question porte sur les bailleurs (BM, BAD, AFD, etc.)
-        const bailleurKeywords = ['banque mondiale', 'world bank', 'bad ', 'b.a.d', 'banque africaine', 'afdb', 'boad', 'bidc', 'afd ', 'agence française', 'isdb', 'bid ', 'banque islamique', 'bailleur', 'fmi', 'fonds monétaire'];
+        // Bailleurs couverts par notre base documentaire (BM, BAD, BID, AFD, BOAD)
+        const bailleurKeywords = [
+            'banque mondiale', 'world bank', 'bank mondiale',
+            'bad ', 'b.a.d', 'banque africaine', 'afdb',
+            'boad', 'banque ouest-africaine',
+            'afd ', 'agence française de developpement', 'agence francaise',
+            'isdb', 'bid ', 'banque islamique', 'islamic development',
+            'bidc', 'fmi', 'fonds monetaire', 'bailleur'
+        ];
         const queryLower = userMessage.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         const queryAboutBailleur = bailleurKeywords.some(kw => queryLower.includes(kw.normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
 
-        // Détecter si la question porte sur un pays spécifique hors du pays de l'utilisateur (pour plan daily)
         const planLabelsForMsg = { free: 'Gratuit', daily: 'Journalier', weekly: 'Hebdomadaire', monthly: 'Mensuel', annual: 'Annuel' };
         const currentPlanLabel = planLabelsForMsg[currentPlan] || currentPlan;
 
@@ -1575,7 +1581,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
         // Cas 1 : Question sur les bailleurs mais plan ne les inclut pas
         if (queryAboutBailleur && !allowsBailleurs) {
-            dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION SPÉCIALE — RESTRICTION DE PLAN : L'utilisateur est abonné au plan "${currentPlanLabel}" qui ne comprend PAS l'accès aux documents des Institutions Financières Internationales (Banque Mondiale, BAD, BOAD, AFD, etc.). Tu DOIS l'informer poliment et professionnellement de cette limitation. Indique-lui clairement que pour accéder aux procédures et règlements des bailleurs internationaux, il doit passer au Plan Mensuel ou Annuel de PROCURA. Propose-lui de reformuler sa question sur les réglementations nationales (ARMP, ARCOP...) qui sont incluses dans son plan. N'invente aucune information sur les bailleurs.`;
+            dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION SPÉCIALE — RESTRICTION DE PLAN : L'utilisateur est abonné au plan "${currentPlanLabel}" qui ne comprend PAS l'accès aux documents des Institutions Financières Internationales. Notre base documentaire couvre : Banque Mondiale, BAD, BID (IsDB), AFD et BOAD — mais uniquement à partir du Plan Mensuel ou Annuel. Tu DOIS informer l'utilisateur poliment de cette limitation et l'inviter à upgrader son plan pour accéder à ces ressources. Propose-lui de reformuler sa question sur les réglementations nationales (ARMP Bénin, ARCOP Niger, ANRMP CI, etc.) qui sont incluses dans son plan actuel. N'invente aucune information sur les bailleurs.`;
         }
         // Cas 2 : Contexte documentaire trouvé
         else if (retrievedContext) {
