@@ -261,161 +261,60 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
     initQuota();
 
 
-    // ── Chargement asynchrone de la base documentaire ────────
-    async function loadKnowledgeBase() {
-        try {
-            console.log("Chargement de la base documentaire...");
-            const response = await fetch('knowledge_base.json');
-            if (response.ok) {
-                knowledgeBase = await response.json();
-                console.log(`Base documentaire chargée avec succès: ${knowledgeBase.length} fragments.`);
-            } else {
-                console.warn("Base documentaire non trouvée ou indisponible (knowledge_base.json).");
+    // ── Web Worker pour la base documentaire ────────
+    let searchWorker = null;
+    let searchWorkerReady = false;
+    let searchResolvers = {};
+    let searchQueryCounter = 0;
+
+    if (window.Worker) {
+        searchWorker = new Worker('searchWorker.js');
+        searchWorker.onmessage = function(e) {
+            if (e.data.type === 'STATUS') {
+                if (e.data.status === 'READY') searchWorkerReady = true;
+            } else if (e.data.type === 'SEARCH_RESULT') {
+                const { queryId, result } = e.data;
+                if (searchResolvers[queryId]) {
+                    searchResolvers[queryId](result);
+                    delete searchResolvers[queryId];
+                }
             }
-        } catch (err) {
-            console.error("Erreur lors du chargement de la base documentaire:", err);
-        }
+        };
+    } else {
+        console.warn("Web Workers non supportés. La recherche locale sera désactivée.");
     }
 
-    // ── Moteur de recherche local (RAG Client-Side) ──────────
-    // Identifiants des catégories "bailleurs" dans la knowledge base
-    const BAILLEURS_KEYWORDS = ['banque mondiale', 'world bank', 'bad', 'afdb', 'boad', 'bidc', 'afd', 'bailleur', 'isdb', 'bid'];
-
-    function searchKnowledge(query, limit = 4) {
-        if (!knowledgeBase || !query) return "";
-
-        // ── FILTRAGE PAR PLAN ─────────────────────────────────────
-        const currentPlan = userProfile ? (userProfile.plan || 'free') : 'free';
-        const userCountry = (userProfile && (currentUser && currentUser.user_metadata && currentUser.user_metadata.country))
-            ? currentUser.user_metadata.country.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
-            : null;
-
-        // Définir le périmètre d'accès selon le plan
-        const accessLevel = {
-            // free/daily = accès national uniquement, sans bailleurs
-            // weekly = accès multi-pays, sans bailleurs
-            // monthly/annual = accès total (multi-pays + bailleurs)
-            allowMultiCountry: ['weekly', 'monthly', 'annual'].includes(currentPlan),
-            allowBailleurs: ['monthly', 'annual'].includes(currentPlan)
-        };
-
-        // Normalisation et tokenisation simple (suppression accents, ponctuation)
-        const normalize = (str) => {
-            return str
-                .toLowerCase()
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "")
-                .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?'"]/g, " ")
-                .split(/\s+/)
-                .filter(w => w.length > 2);
-        };
-
-        const queryWords = normalize(query);
-        if (queryWords.length === 0) return "";
-
-        // Filtrer d'abord les chunks selon le plan
-        let filteredBase = knowledgeBase.filter(chunk => {
-            const cat = (chunk.category || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-            // Vérifier si c'est un document de bailleur
-            const isBailleur = BAILLEURS_KEYWORDS.some(kw => cat.includes(kw));
-            if (isBailleur && !accessLevel.allowBailleurs) return false; // Bloquer pour free/daily/weekly
-
-            // Pour plan daily uniquement : filtrer au pays de l'utilisateur
-            if (currentPlan === 'daily' && userCountry) {
-                // Autoriser uniquement si la catégorie correspond au pays de l'utilisateur
-                // ou si c'est un document générique (sans pays spécifique dans la catégorie)
-                const countryList = ['benin', 'togo', 'niger', 'burkina', 'senegal', 'mali', 'guinee', 'congo', 'cameroun', 'gabon', 'rdc', 'tchad', 'centrafique', 'ivoire'];
-                const chunkHasCountry = countryList.some(c => cat.includes(c));
-                if (chunkHasCountry) {
-                    // Vérifier si le pays du chunk correspond au pays de l'utilisateur
-                    const matchesUserCountry = cat.includes(userCountry) ||
-                        (userCountry.includes('benin') && cat.includes('benin')) ||
-                        (userCountry.includes('togo') && cat.includes('togo')) ||
-                        (userCountry.includes('ivoire') && (cat.includes('ivoire') || cat.includes('rci')));
-                    if (!matchesUserCountry) return false;
-                }
+    // Fonction de recherche asynchrone appelant le Worker
+    function searchKnowledgeAsync(query) {
+        return new Promise((resolve) => {
+            if (!searchWorker) {
+                resolve("");
+                return;
             }
 
-            return true;
-        });
+            const currentPlan = userProfile ? (userProfile.plan || 'free') : 'free';
+            const userCountry = (userProfile && (currentUser && currentUser.user_metadata && currentUser.user_metadata.country))
+                ? currentUser.user_metadata.country.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+                : null;
 
-        // Calcul de pertinence pour chaque chunk
-        const scoredChunks = filteredBase.map(chunk => {
-            let score = 0;
-            const contentNorm = normalize(chunk.content || "");
-            const titleNorm = normalize(chunk.title || "");
-            const categoryNorm = normalize(chunk.category || "");
+            const accessLevel = {
+                allowMultiCountry: ['weekly', 'monthly', 'annual'].includes(currentPlan),
+                allowBailleurs: ['monthly', 'annual'].includes(currentPlan)
+            };
 
-            let categoryMatch = false;
+            const queryId = ++searchQueryCounter;
+            searchResolvers[queryId] = resolve;
 
-            queryWords.forEach(word => {
-                // Category / Country exact match or alias
-                let matchesCategory = false;
-                if (categoryNorm.includes(word)) {
-                    matchesCategory = true;
-                } else if (word === "centrafrique" && categoryNorm.includes("centrafique")) {
-                    matchesCategory = true;
-                } else if ((word === "ivoire" || word === "rci") && (categoryNorm.includes("ivoire") || categoryNorm.includes("rci"))) {
-                    matchesCategory = true;
-                }
-
-                if (matchesCategory) {
-                    score += 100;
-                    categoryMatch = true;
-                }
-
-                // Title match (higher weight, max 3 matches)
-                let titleMatches = 0;
-                titleNorm.forEach(w => {
-                    if (w === word) titleMatches += 5;
-                    else if (w.includes(word)) titleMatches += 1.5;
-                });
-                score += Math.min(titleMatches, 15);
-
-                // Content match
-                let contentMatches = 0;
-                contentNorm.forEach(w => {
-                    if (w === word) contentMatches += 1;
-                    else if (w.includes(word)) contentMatches += 0.2;
-                });
-                score += Math.min(contentMatches, 5);
+            searchWorker.postMessage({
+                type: 'SEARCH',
+                query,
+                accessLevel,
+                currentPlan,
+                userCountry,
+                queryId
             });
-
-            // Penalize mismatching country
-            const countries = ["benin", "niger", "congo", "cameroun", "centrafique", "centrafrique", "ivoire", "rci"];
-            const queryHasCountry = queryWords.some(w => countries.includes(w));
-            const chunkCategory = chunk.category.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            const chunkHasCountry = countries.some(c => chunkCategory.includes(c));
-
-            if (queryHasCountry && chunkHasCountry && !categoryMatch) {
-                score -= 80;
-            }
-
-            return { chunk, score };
         });
-
-        // Filtrage et tri
-        const results = scoredChunks
-            .filter(r => r.score > 0)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, limit)
-            .map(r => r.chunk);
-
-        if (results.length === 0) return "";
-
-        // Construction du bloc de contexte
-        let contextMarkdown = "\n\n<context>\nVoici des informations et règles issues des documents officiels. Utilise-les pour répondre avec précision :\n\n";
-        results.forEach((chunk, index) => {
-            contextMarkdown += `--- SOURCE ${index + 1} : ${chunk.title} [Catégorie: ${chunk.category}] (Fichier: ${chunk.source}) ---\n`;
-            contextMarkdown += `${chunk.content}\n\n`;
-        });
-        contextMarkdown += "</context>";
-
-        return contextMarkdown;
     }
-
-    loadKnowledgeBase();
 
     function hasAccess() {
         // Non connecté : aucun accès, connexion obligatoire
@@ -1575,8 +1474,8 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
         const planLabelsForMsg = { free: 'Gratuit', daily: 'Journalier', weekly: 'Hebdomadaire', monthly: 'Mensuel', annual: 'Annuel' };
         const currentPlanLabel = planLabelsForMsg[currentPlan] || currentPlan;
 
-        // Recherche du contexte pertinent dans la base locale (RAG)
-        const retrievedContext = searchKnowledge(userMessage);
+        // Recherche du contexte pertinent dans la base locale (RAG) avec Web Worker
+        const retrievedContext = await searchKnowledgeAsync(userMessage);
         let dynamicSystemPrompt = SYSTEM_PROMPT;
 
         // Cas 1 : Question sur les bailleurs mais plan ne les inclut pas
