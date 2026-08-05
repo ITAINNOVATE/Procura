@@ -71,7 +71,7 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 4
         if (isBailleur && !accessLevel.allowBailleurs) return false;
 
         if (currentPlan === 'daily' && userCountry) {
-            const countryList = ['benin', 'togo', 'niger', 'burkina', 'senegal', 'mali', 'guinee', 'congo', 'cameroun', 'gabon', 'rdc', 'tchad', 'centrafique', 'ivoire'];
+            const countryList = ['benin', 'togo', 'niger', 'burkina', 'senegal', 'mali', 'guinee', 'congo', 'cameroun', 'gabon', 'rdc', 'tchad', 'centrafique', 'ivoire', 'uemoa'];
             const chunkHasCountry = countryList.some(c => cat.includes(c));
             if (chunkHasCountry) {
                 const matchesUserCountry = cat.includes(userCountry) ||
@@ -129,7 +129,7 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 4
         }
 
         // Pénalité pays
-        const countries = ["benin", "niger", "congo", "cameroun", "centrafique", "centrafrique", "ivoire", "rci", "togo", "mali", "tchad", "burkina", "senegal", "gabon", "guinee", "rdc"];
+        const countries = ["benin", "niger", "congo", "cameroun", "centrafique", "centrafrique", "ivoire", "rci", "togo", "mali", "tchad", "burkina", "senegal", "gabon", "guinee", "rdc", "uemoa"];
         const queryHasCountry = queryWords.some(w => countries.includes(w));
         const chunkHasCountry = countries.some(c => item.categoryRaw.includes(c));
 

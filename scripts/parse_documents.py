@@ -82,6 +82,8 @@ def get_category(root_path):
                 return "BAD (Banque Africaine de Développement)"
             elif "BID" in fn_upper or "ISDB" in fn_upper:
                 return "BID (Banque Islamique de Développement)"
+            elif "UEMOA" in fn_upper:
+                return "UEMOA"
             # Thématiques et autres
             elif "THEMATIQUES" in fn_upper or "THÉMATIQUES" in fn_upper:
                 return "Thématiques"
