@@ -258,12 +258,27 @@ def main():
 
                 knowledge_base.extend(file_chunks)
 
-    # Save to JSON
-    with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
-        json.dump(knowledge_base, f, ensure_ascii=False, indent=2)
+    # Save to JSON in chunks to avoid GitHub 100MB limit
+    CHUNK_SIZE = 8000
+    total_chunks = len(knowledge_base)
+    num_parts = (total_chunks + CHUNK_SIZE - 1) // CHUNK_SIZE
 
-    print(f"\n✅ Parsing terminé. {file_counter} fichiers traités, {len(knowledge_base)} chunks générés.")
-    print(f"Base sauvegardée dans {OUTPUT_JSON} ({os.path.getsize(OUTPUT_JSON) / 1024 / 1024:.2f} MB).")
+    for i in range(num_parts):
+        part_data = knowledge_base[i*CHUNK_SIZE : (i+1)*CHUNK_SIZE]
+        part_filename = f"knowledge_base_part_{i+1}.json"
+        with open(part_filename, "w", encoding="utf-8") as f:
+            json.dump(part_data, f, ensure_ascii=False, indent=2)
+        print(f"Partie {i+1}/{num_parts} sauvegardée dans {part_filename} ({os.path.getsize(part_filename) / 1024 / 1024:.2f} MB)")
+
+    # Write metadata
+    meta = {
+        "total_chunks": total_chunks,
+        "num_parts": num_parts
+    }
+    with open("knowledge_base_meta.json", "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=2)
+
+    print(f"\n✅ Parsing terminé. {file_counter} fichiers traités, {total_chunks} chunks générés en {num_parts} parties.")
 
 if __name__ == "__main__":
     main()

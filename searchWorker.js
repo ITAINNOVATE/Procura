@@ -23,32 +23,38 @@ const normalize = (str) => {
 // Fonction de chargement de la base documentaire
 async function loadKnowledgeBase() {
     try {
-        console.log("[Worker] Téléchargement de la base documentaire...");
-        // Fetch de la base json
-        const response = await fetch('knowledge_base.json');
-        if (response.ok) {
-            const rawBase = await response.json();
-            console.log(`[Worker] Base chargée (${rawBase.length} chunks). Pré-indexation en cours...`);
-            
-            // Pré-indexation : on normalise les contenus une seule fois
-            knowledgeBase = rawBase.map(chunk => {
-                return {
-                    chunk: chunk,
-                    contentNorm: normalize(chunk.content || ""),
-                    titleNorm: normalize(chunk.title || ""),
-                    categoryNorm: normalize(chunk.category || ""),
-                    categoryRaw: (chunk.category || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                };
-            });
-            
-            isLoaded = true;
-            console.log("[Worker] Pré-indexation terminée ! Prêt pour la recherche.");
-            postMessage({ type: 'STATUS', status: 'READY' });
-        } else {
-            console.warn("[Worker] Base documentaire non trouvée (knowledge_base.json).");
-            isFailed = true;
-            postMessage({ type: 'STATUS', status: 'FAILED' });
+        console.log("[Worker] Téléchargement des métadonnées de la base documentaire...");
+        const metaResponse = await fetch('knowledge_base_meta.json');
+        if (!metaResponse.ok) throw new Error("knowledge_base_meta.json introuvable");
+        const meta = await metaResponse.json();
+        
+        console.log(`[Worker] Métadonnées chargées. Téléchargement des ${meta.num_parts} parties en parallèle...`);
+        
+        const fetchPromises = [];
+        for (let i = 1; i <= meta.num_parts; i++) {
+            fetchPromises.push(fetch(`knowledge_base_part_${i}.json`).then(res => res.json()));
         }
+        
+        const parts = await Promise.all(fetchPromises);
+        const rawBase = parts.flat();
+        
+        console.log(`[Worker] Base chargée (${rawBase.length} chunks). Pré-indexation en cours...`);
+        
+        // Pré-indexation : on normalise les contenus une seule fois
+        knowledgeBase = rawBase.map(chunk => {
+            return {
+                chunk: chunk,
+                contentNorm: normalize(chunk.content || ""),
+                titleNorm: normalize(chunk.title || ""),
+                categoryNorm: normalize(chunk.category || ""),
+                categoryRaw: (chunk.category || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            };
+        });
+        
+        isLoaded = true;
+        console.log("[Worker] Pré-indexation terminée ! Prêt pour la recherche.");
+        postMessage({ type: 'STATUS', status: 'READY' });
+
     } catch (err) {
         console.error("[Worker] Erreur lors du chargement:", err);
         isFailed = true;
