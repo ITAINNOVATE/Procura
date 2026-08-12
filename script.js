@@ -299,7 +299,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
             const accessLevel = {
                 allowMultiCountry: ['weekly', 'monthly', 'annual'].includes(currentPlan),
-                allowBailleurs: ['monthly', 'annual'].includes(currentPlan)
+                allowBailleurs: ['weekly', 'monthly', 'annual'].includes(currentPlan)
             };
 
             const queryId = ++searchQueryCounter;
