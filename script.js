@@ -472,6 +472,11 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 userProfile = profile;
             }
 
+            // Force unlimited plan for specific admin test account
+            if (userProfile && currentUser && currentUser.email && currentUser.email.toLowerCase() === 'arafathimorou@gmail.com') {
+                userProfile.plan = 'annual';
+            }
+
             if (userProfile && userProfile.questions_asked !== undefined) {
                 questionsUsed = userProfile.questions_asked;
                 safeStorage.setItem('procura_q_count', questionsUsed);
