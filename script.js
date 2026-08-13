@@ -472,8 +472,9 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
                 userProfile = profile;
             }
 
-            // Force unlimited plan for specific admin test account
-            if (userProfile && currentUser && currentUser.email && currentUser.email.toLowerCase() === 'arafathimorou@gmail.com') {
+            // Force unlimited plan for specific admin test accounts
+            const adminEmails = ['arafathimorou@gmail.com', 'akiboubassabi@gmail.com'];
+            if (userProfile && currentUser && currentUser.email && adminEmails.includes(currentUser.email.toLowerCase())) {
                 userProfile.plan = 'annual';
             }
 
