@@ -669,6 +669,8 @@ textarea::placeholder {
 .message.bot .message-content p {
     margin: 0.5rem 0;
     line-height: 1.65;
+    text-align: justify;
+    text-justify: inter-word;
 }
 
 /* Listes à puces & numérotées */
@@ -682,6 +684,8 @@ textarea::placeholder {
     margin-bottom: 0.35rem;
     list-style-type: disc;
     line-height: 1.6;
+    text-align: justify;
+    text-justify: inter-word;
 }
 
 .message.bot .message-content ol li {
@@ -689,6 +693,8 @@ textarea::placeholder {
     list-style-type: decimal;
     line-height: 1.6;
     font-weight: 500;
+    text-align: justify;
+    text-justify: inter-word;
 }
 
 .message.bot .message-content ol li::marker {
