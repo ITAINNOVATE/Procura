@@ -1492,7 +1492,7 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION FINALE : AUCUN DOCUMENT OFFICIEL N'A ÉTÉ TROUVÉ DANS LA BASE DE PROCURA POUR CETTE REQUÊTE. Règle absolue : N'invente aucune procédure et n'utilise pas tes connaissances générales. Formule une réponse extrêmement polie et prestigieuse indiquant que cette information spécifique n'est pas répertoriée dans notre référentiel actuel. Suggère courtoisement à l'utilisateur de reformuler sa requête ou de consulter le portail officiel du régulateur compétent pour une parfaite sécurité juridique.`;
         }
 
-        const isVercel = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+        const isVercel = !isLocalhost;
 
         // No API key → use offline fallback (only check locally, as on Vercel the key is securely fetched in the backend proxy)
         if (!isVercel && (!GEMINI_API_KEY || GEMINI_API_KEY === 'VOTRE_CLE_API_GEMINI_ICI' || GEMINI_API_KEY === 'VOTRE_CLE_API_ICI')) {
