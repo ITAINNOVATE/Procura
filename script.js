@@ -1507,24 +1507,24 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
             return;
         }
 
+        const body = {
+            system_instruction: {
+                parts: [{ text: dynamicSystemPrompt }]
+            },
+            contents: conversationHistory,
+            generationConfig: {
+                temperature: 0.3,
+                maxOutputTokens: 8192,
+                topP: 0.9,
+                thinkingConfig: { thinkingBudget: 0 }  // Désactive le thinking pour réponses rapides
+            }
+        };
+
         try {
             // Use streamGenerateContent for real-time streaming (call secure Vercel Edge Function in prod, direct Google API in dev)
             const url = isVercel 
                 ? '/api/gemini'
                 : `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
-
-            const body = {
-                system_instruction: {
-                    parts: [{ text: dynamicSystemPrompt }]
-                },
-                contents: conversationHistory,
-                generationConfig: {
-                    temperature: 0.3,
-                    maxOutputTokens: 8192,
-                    topP: 0.9,
-                    thinkingConfig: { thinkingBudget: 0 }  // Désactive le thinking pour réponses rapides
-                }
-            };
 
             const res = await fetch(url, {
                 method: 'POST',
@@ -1620,8 +1620,48 @@ Tu dois fonder tes réponses sur les données et procédures provenant des insti
 
         } catch (err) {
             console.error('PROCURA AI error:', err);
+            
+            // Fallback direct vers Google si l'API Vercel (ou le réseau/bloqueur) échoue avec un NetworkError
+            if (isVercel && err.message.includes('NetworkError') && GEMINI_API_KEY && GEMINI_API_KEY !== 'VOTRE_CLE_API_GEMINI_ICI') {
+                console.warn("[PROCURA] NetworkError détecté sur le backend Vercel. Tentative de repli vers l'API Google directe...");
+                try {
+                    const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?key=${GEMINI_API_KEY}`;
+                    
+                    const res2 = await fetch(fallbackUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    
+                    if (!res2.ok) {
+                        const err2 = await res2.json();
+                        throw new Error(err2.error?.message || `HTTP ${res2.status}`);
+                    }
+                    
+                    const responseData = await res2.json();
+                    const text = responseData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                    
+                    if (text) {
+                        showBotMessage(text);
+                        conversationHistory.push({ role: 'model', parts: [{ text: text }] });
+                        
+                        if (currentUser && currentPlan !== 'monthly' && currentPlan !== 'annual' && currentPlan !== 'weekly') {
+                            questionsUsed++;
+                            safeStorage.setItem('procura_q_count', questionsUsed);
+                            if (supabase) {
+                                supabase.from('profiles').update({ questions_asked: questionsUsed }).eq('id', currentUser.id).then(() => {});
+                            }
+                        }
+                        updateCounter();
+                        return; // Succès du repli, on arrête ici
+                    }
+                } catch (fallbackErr) {
+                    err = fallbackErr; // Si le repli échoue, on affiche l'erreur finale
+                }
+            }
+
             showBotMessage(
-                `## ⚠️ Erreur de connexion\n\nImpossible de joindre le service PROCURA AI.\n\n**Détail :** ${err.message}\n\n---\n💡 Vérifiez votre clé API ou contactez Bass Consulting.`
+                `## ⚠️ Erreur de connexion\n\nImpossible de joindre le service PROCURA AI.\n\n**Détail :** ${err.message}\n\n---\n💡 Désactivez votre bloqueur de publicité ou contactez Bass Consulting.`
             );
         }
     }
