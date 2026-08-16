@@ -451,11 +451,11 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     async function initAuth() {
         if (!supabase) return;
 
-        supabase.auth.onAuthStateChange(async (event, session) => {
+        supabase.auth.onAuthStateChange((event, session) => {
             if (session) {
                 currentUser = session.user;
-                await syncUserProfile();
                 updateUIForLoggedIn();
+                syncUserProfile().then(() => updateUIForLoggedIn()).catch(e => console.warn("Profile sync background:", e));
             } else {
                 currentUser = null;
                 userProfile = null;
@@ -1143,6 +1143,9 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
 
             currentUser = data.user;
             console.log(`[AUTH] Connexion réussie: ${currentUser.email}`);
+
+            // Affichage instantané de l'interface utilisateur connectée
+            updateUIForLoggedIn();
 
             const modal = document.getElementById('paywallModal');
             if (selectedPlan && selectedPlan !== 'free') {
