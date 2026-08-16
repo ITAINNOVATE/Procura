@@ -308,14 +308,15 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                 return;
             }
 
-            const currentPlan = userProfile ? (userProfile.plan || 'free') : 'free';
+            const isSupportAdmin = currentUser && currentUser.email && currentUser.email.toLowerCase().trim() === 'support@bassentreprises.com';
+            const currentPlan = isSupportAdmin ? 'annual' : (userProfile ? (userProfile.plan || 'free') : 'free');
             const userCountry = (userProfile && (currentUser && currentUser.user_metadata && currentUser.user_metadata.country))
                 ? currentUser.user_metadata.country.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
                 : null;
 
             const accessLevel = {
-                allowMultiCountry: ['weekly', 'monthly', 'annual'].includes(currentPlan),
-                allowBailleurs: ['weekly', 'monthly', 'annual'].includes(currentPlan)
+                allowMultiCountry: isSupportAdmin || ['weekly', 'monthly', 'annual'].includes(currentPlan),
+                allowBailleurs: isSupportAdmin || ['weekly', 'monthly', 'annual'].includes(currentPlan)
             };
 
             const queryId = ++searchQueryCounter;
@@ -335,6 +336,9 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     function hasAccess() {
         // Non connecté : aucun accès, connexion obligatoire
         if (!currentUser) return false;
+
+        const isSupportAdmin = currentUser.email && currentUser.email.toLowerCase().trim() === 'support@bassentreprises.com';
+        if (isSupportAdmin) return true;
 
         if (!userProfile) {
             // Connecté mais profil pas encore chargé : bénéfice du doute
@@ -358,6 +362,13 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         if (!currentUser) {
             counterText.innerHTML = '🔐 <strong>Connexion requise</strong> — <span style="font-size:0.85em">Créez un compte pour accéder à Procura</span>';
             if (counterEl) counterEl.classList.add('counter-exhausted');
+            return;
+        }
+
+        const isSupportAdmin = currentUser.email && currentUser.email.toLowerCase().trim() === 'support@bassentreprises.com';
+        if (isSupportAdmin) {
+            counterText.innerHTML = `🛡️ <strong>Compte Administrateur (Bass Consulting)</strong> — Questions <strong>illimitées</strong>`;
+            if (counterEl) counterEl.classList.remove('counter-exhausted');
             return;
         }
 
@@ -1559,9 +1570,10 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         });
 
         // ── Vérification de l'accès au contenu selon le plan ──────
-        const currentPlan = userProfile ? (userProfile.plan || 'free') : 'free';
-        const allowsBailleurs = ['monthly', 'annual'].includes(currentPlan);
-        const allowsMultiCountry = ['weekly', 'monthly', 'annual'].includes(currentPlan);
+        const isSupportAdmin = currentUser && currentUser.email && currentUser.email.toLowerCase().trim() === 'support@bassentreprises.com';
+        const currentPlan = isSupportAdmin ? 'annual' : (userProfile ? (userProfile.plan || 'free') : 'free');
+        const allowsBailleurs = isSupportAdmin || ['monthly', 'annual'].includes(currentPlan);
+        const allowsMultiCountry = isSupportAdmin || ['weekly', 'monthly', 'annual'].includes(currentPlan);
 
         // Bailleurs couverts par notre base documentaire (BM, BAD, BID, AFD, BOAD)
         const bailleurKeywords = [
