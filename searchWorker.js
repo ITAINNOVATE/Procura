@@ -28,19 +28,46 @@ const normalize = (str, keepStopWords = false) => {
     return tokens.filter(w => !STOP_WORDS.has(w) && w.length > 2);
 };
 
+const CACHE_NAME = 'procura-kb-v2';
+
+// Fonction de chargement avec mise en cache ultra-rapide (Cache API)
+async function fetchPartWithCache(partNum) {
+    const url = `knowledge_base_part_${partNum}.json`;
+    if ('caches' in self) {
+        try {
+            const cache = await caches.open(CACHE_NAME);
+            const cachedResponse = await cache.match(url);
+            if (cachedResponse) {
+                console.log(`[Worker] ⚡ Chargement instantané depuis le cache local (Partie ${partNum})`);
+                return await cachedResponse.json();
+            }
+            console.log(`[Worker] Téléchargement réseau de la partie ${partNum}...`);
+            const response = await fetch(url);
+            if (response.ok) {
+                cache.put(url, response.clone()).catch(() => {});
+            }
+            return await response.json();
+        } catch (e) {
+            console.warn(`[Worker] Fallback fetch direct (Partie ${partNum}):`, e);
+        }
+    }
+    const response = await fetch(url);
+    return await response.json();
+}
+
 // Fonction de chargement de la base documentaire
 async function loadKnowledgeBase() {
     try {
-        console.log("[Worker] Téléchargement des métadonnées de la base documentaire...");
+        console.log("[Worker] Vérification des métadonnées de la base documentaire...");
         const metaResponse = await fetch('knowledge_base_meta.json');
         if (!metaResponse.ok) throw new Error("knowledge_base_meta.json introuvable");
         const meta = await metaResponse.json();
         
-        console.log(`[Worker] Métadonnées chargées. Téléchargement des ${meta.num_parts} parties en parallèle...`);
+        console.log(`[Worker] Chargement des ${meta.num_parts} parties de la base documentaire...`);
         
         const fetchPromises = [];
         for (let i = 1; i <= meta.num_parts; i++) {
-            fetchPromises.push(fetch(`knowledge_base_part_${i}.json`).then(res => res.json()));
+            fetchPromises.push(fetchPartWithCache(i));
         }
         
         const parts = await Promise.all(fetchPromises);

@@ -275,31 +275,45 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
 
 
     // ── Web Worker pour la base documentaire ────────
+    // ── Web Worker pour la base documentaire (Chargement différé pour affichage instantané) ────────
     let searchWorker = null;
     let searchWorkerReady = false;
     let searchResolvers = {};
     let searchQueryCounter = 0;
 
-    if (window.Worker) {
-        searchWorker = new Worker('searchWorker.js');
-        searchWorker.onmessage = function(e) {
-            if (e.data.type === 'STATUS') {
-                if (e.data.status === 'READY') searchWorkerReady = true;
-            } else if (e.data.type === 'SEARCH_RESULT') {
-                const { queryId, result } = e.data;
-                if (searchResolvers[queryId]) {
-                    searchResolvers[queryId](result);
-                    delete searchResolvers[queryId];
+    function initSearchWorker() {
+        if (searchWorker) return;
+        if (window.Worker) {
+            searchWorker = new Worker('searchWorker.js');
+            searchWorker.onmessage = function(e) {
+                if (e.data.type === 'STATUS') {
+                    if (e.data.status === 'READY') searchWorkerReady = true;
+                } else if (e.data.type === 'SEARCH_RESULT') {
+                    const { queryId, result } = e.data;
+                    if (searchResolvers[queryId]) {
+                        searchResolvers[queryId](result);
+                        delete searchResolvers[queryId];
+                    }
                 }
-            }
-        };
+            };
+        } else {
+            console.warn("Web Workers non supportés. La recherche locale sera désactivée.");
+        }
+    }
+
+    // Lancer l'initialisation du Worker de manière fluide après l'affichage initial du site
+    if (window.requestIdleCallback) {
+        requestIdleCallback(() => initSearchWorker(), { timeout: 1000 });
     } else {
-        console.warn("Web Workers non supportés. La recherche locale sera désactivée.");
+        setTimeout(() => initSearchWorker(), 300);
     }
 
     // Fonction de recherche asynchrone appelant le Worker
     function searchKnowledgeAsync(query) {
         return new Promise((resolve) => {
+            if (!searchWorker) {
+                initSearchWorker();
+            }
             if (!searchWorker) {
                 resolve("");
                 return;
