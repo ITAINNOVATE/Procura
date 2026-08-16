@@ -8,16 +8,24 @@ let isFailed = false;
 // Identifiants des catégories "bailleurs"
 const BAILLEURS_KEYWORDS = ['banque mondiale', 'world bank', 'bad', 'afdb', 'boad', 'bidc', 'afd', 'bailleur', 'isdb', 'bid'];
 
-// Normalisation et tokenisation simple
-const normalize = (str) => {
+// Liste des mots vides (stop-words) en français à ignorer dans la recherche
+const STOP_WORDS = new Set([
+    'est', 'quoi', 'quel', 'quelle', 'quels', 'quelles', 'cest', 'les', 'des', 'que', 'qui', 'dans', 'pour', 'sur', 'avec', 'par', 'aux', 'une', 'comment', 'pourquoi', 'combien', 'mais', 'donc', 'car', 'du', 'de', 'la', 'le', 'un', 'nos', 'vos', 'leur', 'leurs'
+]);
+
+// Normalisation et tokenisation avancée
+const normalize = (str, keepStopWords = false) => {
     if (!str) return [];
-    return str
+    const tokens = str
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?'"]/g, " ")
         .split(/\s+/)
-        .filter(w => w.length > 2);
+        .filter(w => w.length > 1);
+    
+    if (keepStopWords) return tokens;
+    return tokens.filter(w => !STOP_WORDS.has(w) && w.length > 2);
 };
 
 // Fonction de chargement de la base documentaire
@@ -47,7 +55,9 @@ async function loadKnowledgeBase() {
                 contentNorm: normalize(chunk.content || ""),
                 titleNorm: normalize(chunk.title || ""),
                 categoryNorm: normalize(chunk.category || ""),
-                categoryRaw: (chunk.category || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                categoryRaw: (chunk.category || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+                titleRawLower: (chunk.title || '').toLowerCase(),
+                contentRawLower: (chunk.content || '').toLowerCase()
             };
         });
         
@@ -62,19 +72,39 @@ async function loadKnowledgeBase() {
     }
 }
 
-// Fonction de recherche améliorée (style BM25)
-function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 4) {
+// Fonction de recherche améliorée (BM25 + RAG hybride + Filtrage intelligent)
+function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6) {
     if (!isLoaded || !query) return "";
 
     const queryWords = normalize(query);
+    const rawQueryWords = normalize(query, true);
     if (queryWords.length === 0) return "";
 
-    // 1. Filtrer selon le plan d'accès
+    // 1. Détections spécifiques (Récence & Acronymes)
+    const recencyTerms = ['derniere', 'dernier', 'recent', 'recente', 'jour', 'edition', 'revision', 'nouveau', 'nouvelle'];
+    const isRecencyQuery = rawQueryWords.some(w => recencyTerms.includes(w));
+
+    // Mots spécifiques (acronymes ou termes rares hors mots généraux)
+    const genericWords = ['marches', 'publics', 'passation', 'republique', 'decret', 'loi', 'code', 'reglement', 'procedures'];
+    const specificTokens = queryWords.filter(w => w.length >= 3 && !genericWords.includes(w));
+
+    // Recherche si des acronymes ou termes spécifiques de la question existent dans la base
+    const missingSpecificTokens = [];
+    specificTokens.forEach(token => {
+        const foundInCorpus = knowledgeBase.some(item => 
+            item.titleRawLower.includes(token) || item.contentRawLower.includes(token) || item.categoryRaw.includes(token)
+        );
+        if (!foundInCorpus) {
+            missingSpecificTokens.push(token);
+        }
+    });
+
+    // 2. Filtrer selon le plan d'accès
     let filteredBase = knowledgeBase.filter(item => {
         const cat = item.categoryRaw;
 
         const isBailleur = BAILLEURS_KEYWORDS.some(kw => cat.includes(kw));
-        if (isBailleur && !accessLevel.allowBailleurs) return false;
+        if (isBailleur && accessLevel && !accessLevel.allowBailleurs) return false;
 
         if (currentPlan === 'daily' && userCountry) {
             const countryList = ['benin', 'togo', 'niger', 'burkina', 'senegal', 'mali', 'guinee', 'congo', 'cameroun', 'gabon', 'rdc', 'tchad', 'centrafique', 'ivoire', 'uemoa'];
@@ -90,7 +120,7 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 4
         return true;
     });
 
-    // 2. Calcul du score pour chaque document (RAG intelligent)
+    // 3. Calcul du score pour chaque document
     const scoredChunks = filteredBase.map(item => {
         let score = 0;
         let categoryMatch = false;
@@ -106,61 +136,102 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 4
             }
 
             if (matchesCategory) {
-                score += 150; // Boost massif si la question nomme le pays ou bailleur
+                score += 150; // Boost si la question nomme le pays ou le bailleur
                 categoryMatch = true;
             }
 
-            // Title match (poids très fort)
+            // Title match
             let titleMatches = 0;
             item.titleNorm.forEach(w => {
-                if (w === word) titleMatches += 20; // Mot exact dans le titre
-                else if (w.includes(word) || word.includes(w)) titleMatches += 5; // Sous-chaîne
+                if (w === word) titleMatches += 30;
+                else if (w.includes(word) || word.includes(w)) titleMatches += 10;
             });
-            score += Math.min(titleMatches, 60);
+            score += Math.min(titleMatches, 90);
 
             // Content match
             let contentMatches = 0;
             item.contentNorm.forEach(w => {
-                if (w === word) contentMatches += 2; // Mot exact
-                else if (w.includes(word)) contentMatches += 0.5;
+                if (w === word) contentMatches += 3;
+                else if (w.includes(word)) contentMatches += 1;
             });
-            score += Math.min(contentMatches, 30);
+            score += Math.min(contentMatches, 40);
         });
 
-        // Boost de proximité ou de phrase exacte (si la requête complète apparait)
+        // Exact query substring match bonus
         const queryRawNorm = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const contentRawNorm = (item.chunk.content || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        if (contentRawNorm.includes(queryRawNorm)) {
-            score += 100;
+        if (item.contentRawLower.includes(queryRawNorm)) {
+            score += 120;
         }
 
-        // Pénalité pays
+        // Boost chronologique pour les révisions / éditions récentes (ex: 2025 vs 2023 vs 2018)
+        if (isRecencyQuery) {
+            const fullTextForYear = (item.chunk.title + ' ' + (item.chunk.source || '') + ' ' + (item.chunk.path || ''));
+            const yearMatches = fullTextForYear.match(/\b(20[1-2][0-9])\b/g);
+            if (yearMatches) {
+                const maxYear = Math.max(...yearMatches.map(y => parseInt(y, 10)));
+                if (maxYear >= 2025) {
+                    score += 350;
+                    if (item.titleRawLower.includes('regulations') || item.titleRawLower.includes('reglement') || item.titleRawLower.includes('revisions')) {
+                        score += 200; // Extra boost for 2025 regulation summary files
+                    }
+                }
+                else if (maxYear >= 2023) score += 150;
+                else if (maxYear >= 2020) score += 80;
+                else if (maxYear >= 2018) score += 20;
+            }
+        }
+
+        // Boost pour l'intention conceptuelle / comparaison / carrousels pédagogiques
+        const definitionTerms = ['difference', 'differentes', 'comparaison', 'distinction', 'versus', 'entre', 'explication', 'signifie', 'definition', 'definir', 'erreur', 'erreurs', 'risques'];
+        const isDefinitionQuery = rawQueryWords.some(w => definitionTerms.includes(w)) || queryWords.includes('quoi') || queryWords.includes('comment');
+
+        if (item.categoryRaw.includes('carrousel') || item.titleRawLower.includes('carrousel') || item.titleRawLower.includes('difference') || item.titleRawLower.includes('erreurs')) {
+            score += 50;
+            if (isDefinitionQuery) {
+                score += 120;
+            }
+        }
+
+        // Pénalité de croisement de pays
         const countries = ["benin", "niger", "congo", "cameroun", "centrafique", "centrafrique", "ivoire", "rci", "togo", "mali", "tchad", "burkina", "senegal", "gabon", "guinee", "rdc", "uemoa"];
         const queryHasCountry = queryWords.some(w => countries.includes(w));
         const chunkHasCountry = countries.some(c => item.categoryRaw.includes(c));
 
         if (queryHasCountry && chunkHasCountry && !categoryMatch) {
-            score -= 200; // Forte pénalité si le chunk parle d'un autre pays que celui demandé
+            score -= 200;
         }
 
         return { chunk: item.chunk, score };
     });
 
-    // 3. Trier et garder les meilleurs résultats
+    // Seuil de score minimal : plus strict si un acronyme demandé est absent de la base
+    let minScore = 15;
+    if (missingSpecificTokens.length > 0) {
+        minScore = 200; // Bloquer les faux positifs génériques sur "marchés publics" si l'acronyme précis n'existe pas
+    }
+
     const results = scoredChunks
-        .filter(r => r.score > 10) // Ignorer les faux positifs faibles
+        .filter(r => r.score >= minScore)
         .sort((a, b) => b.score - a.score)
         .slice(0, limit)
         .map(r => r.chunk);
 
-    if (results.length === 0) return "";
-
-    // 4. Formater le contexte
+    // 4. Formater le contexte transmis à l'IA
     let contextMarkdown = "\n\n<context>\nVoici des informations et règles issues des documents officiels. Utilise-les pour répondre avec précision :\n\n";
-    results.forEach((chunk, index) => {
-        contextMarkdown += `--- SOURCE ${index + 1} : ${chunk.title} [Catégorie: ${chunk.category}] (Fichier: ${chunk.source}) ---\n`;
-        contextMarkdown += `${chunk.content}\n\n`;
-    });
+
+    if (missingSpecificTokens.length > 0) {
+        contextMarkdown += `⚠️ REMARQUE IMPORTANTE : Le(s) terme(s) ou sigle(s) [${missingSpecificTokens.join(', ')}] ne figure(nt) pas dans les documents officiels de la base documentaire. Si la question concerne la gestion des marchés publics, précise que le sigle officiel de la gestion informatique des marchés publics est généralement le SIGMAP (Système d'Information et de Gestion des Marchés Publics).\n\n`;
+    }
+
+    if (results.length > 0) {
+        results.forEach((chunk, index) => {
+            contextMarkdown += `--- SOURCE ${index + 1} : ${chunk.title} [Catégorie: ${chunk.category}] (Fichier: ${chunk.source}) ---\n`;
+            contextMarkdown += `${chunk.content}\n\n`;
+        });
+    } else {
+        contextMarkdown += "Aucun document directement pertinent n'a été trouvé dans la base documentaire pour cette requête spécifique.\n\n";
+    }
+
     contextMarkdown += "</context>";
 
     return contextMarkdown;
