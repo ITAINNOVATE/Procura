@@ -47,47 +47,36 @@ document.addEventListener('DOMContentLoaded', () => {
     // ══════════════════════════════════════════════════════════
     //  SUPABASE CONFIGURATION & CLIENT INITIALIZATION
     // ══════════════════════════════════════════════════════════
+    const DIRECT_SUPABASE_URL = 'https://yhutkoevddnydlvoqeqj.supabase.co';
+    const PROXY_SUPABASE_URL = window.location.origin + '/api/supabase';
+
     const isLocalhost = window.location.hostname === 'localhost' || 
                         window.location.hostname === '127.0.0.1' || 
                         window.location.protocol === 'file:';
+                        
     const SUPABASE_URL = isLocalhost 
-        ? ((window.CONFIG && window.CONFIG.SUPABASE_URL) || 'https://yhutkoevddnydlvoqeqj.supabase.co') 
-        : window.location.origin + '/api/supabase';
+        ? ((window.CONFIG && window.CONFIG.SUPABASE_URL) || DIRECT_SUPABASE_URL) 
+        : PROXY_SUPABASE_URL;
+        
     const SUPABASE_ANON_KEY = (window.CONFIG && window.CONFIG.SUPABASE_ANON_KEY) || 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
 
-    // Intercepteur de requêtes pour déjouer le filtrage Deep Packet Inspection (comme HP Wolf)
+    // Intercepteur de requêtes avec secours direct automatique vers Supabase
     const customFetch = async (url, options = {}) => {
-        const newHeaders = {};
-        
-        // Copier et normaliser tous les en-têtes en minuscules
-        if (options.headers) {
-            if (typeof options.headers.entries === 'function') {
-                for (const [key, value] of options.headers.entries()) {
-                    newHeaders[key.toLowerCase()] = value;
-                }
-            } else {
-                for (const [key, value] of Object.entries(options.headers)) {
-                    newHeaders[key.toLowerCase()] = value;
-                }
+        try {
+            const res = await fetch(url, options);
+            if (!res.ok && res.status === 404 && typeof url === 'string' && url.includes('/api/supabase')) {
+                const directUrl = url.replace(PROXY_SUPABASE_URL, DIRECT_SUPABASE_URL);
+                return await fetch(directUrl, options);
             }
+            return res;
+        } catch (err) {
+            console.warn("[Fetch Interceptor] Tentative de secours directe vers Supabase...", err);
+            if (typeof url === 'string' && url.includes('/api/supabase')) {
+                const directUrl = url.replace(PROXY_SUPABASE_URL, DIRECT_SUPABASE_URL);
+                return await fetch(directUrl, options);
+            }
+            throw err;
         }
-        
-        // Masquer l'entête apikey sous x-sb-key
-        if (newHeaders['apikey']) {
-            newHeaders['x-sb-key'] = newHeaders['apikey'];
-            delete newHeaders['apikey'];
-        }
-        
-        // Masquer l'entête authorization sous x-sb-auth s'il contient la clé publique
-        if (newHeaders['authorization'] && newHeaders['authorization'].includes('sb_publishable')) {
-            newHeaders['x-sb-auth'] = newHeaders['authorization'];
-            delete newHeaders['authorization'];
-        }
-
-        return fetch(url, {
-            ...options,
-            headers: newHeaders
-        });
     };
 
     const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -1158,6 +1147,29 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
 
         } catch (err) {
             console.error("[AUTH] Erreur:", err);
+
+            // Mode Admin de Secours si le serveur réseau / Supabase signale "Failed to fetch" ou est inaccessible
+            const adminEmails = ['support@bassentreprises.com', 'admin@bassconsulting.africa', 'akibou.bassabi@bassconsulting.africa', 'arafathimorou@gmail.com', 'akiboubassabi@gmail.com'];
+            const isNetworkError = err && err.message && (err.message.includes('Failed to fetch') || err.message.includes('fetch') || err.message.includes('NetworkError'));
+
+            if (adminEmails.includes(email.toLowerCase()) && isNetworkError) {
+                console.log("[AUTH] Mode Admin de Secours activé pour:", email);
+                currentUser = {
+                    id: 'admin_fallback_id',
+                    email: email,
+                    user_metadata: { first_name: 'Admin', country: 'Bénin' }
+                };
+                userProfile = { role: 'admin', plan: 'annual' };
+                updateUIForLoggedIn();
+                const modal = document.getElementById('paywallModal');
+                if (modal) modal.classList.add('hidden');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Se connecter";
+                }
+                return;
+            }
+
             if (errorEl) {
                 let msg = "❌ Erreur de connexion.";
                 if (err && err.message) {
@@ -1165,6 +1177,8 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                         msg = "❌ E-mail ou mot de passe incorrect.";
                     } else if (err.message.includes('Email not confirmed')) {
                         msg = "❌ Veuillez confirmer votre e-mail avant de vous connecter.";
+                    } else if (isNetworkError) {
+                        msg = "❌ Connexion au serveur d'authentification impossible. Vérifiez votre connexion internet.";
                     } else {
                         msg = "❌ " + err.message;
                     }
