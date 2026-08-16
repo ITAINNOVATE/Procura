@@ -535,8 +535,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         }
 
         const adminBtnEl = document.getElementById('headerAdminBtn');
-        const adminEmails = ['support@bassentreprises.com', 'admin@bassconsulting.africa', 'akibou.bassabi@bassconsulting.africa', 'arafathimorou@gmail.com', 'akiboubassabi@gmail.com'];
-        const isAdmin = currentUser && currentUser.email && (adminEmails.includes(currentUser.email.toLowerCase()) || (userProfile && userProfile.role === 'admin'));
+        const isAdmin = currentUser && currentUser.email && currentUser.email.toLowerCase().trim() === 'support@bassentreprises.com';
         if (adminBtnEl) {
             if (isAdmin) adminBtnEl.classList.remove('hidden');
             else adminBtnEl.classList.add('hidden');
@@ -1149,10 +1148,10 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             console.error("[AUTH] Erreur:", err);
 
             // Mode Admin de Secours si le serveur réseau / Supabase signale "Failed to fetch" ou est inaccessible
-            const adminEmails = ['support@bassentreprises.com', 'admin@bassconsulting.africa', 'akibou.bassabi@bassconsulting.africa', 'arafathimorou@gmail.com', 'akiboubassabi@gmail.com'];
+            const isStrictAdmin = email && email.toLowerCase().trim() === 'support@bassentreprises.com';
             const isNetworkError = err && err.message && (err.message.includes('Failed to fetch') || err.message.includes('fetch') || err.message.includes('NetworkError'));
 
-            if (adminEmails.includes(email.toLowerCase()) && isNetworkError) {
+            if (isStrictAdmin && isNetworkError) {
                 console.log("[AUTH] Mode Admin de Secours activé pour:", email);
                 currentUser = {
                     id: 'admin_fallback_id',
@@ -1812,6 +1811,11 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     let selectedAdminFile = null;
 
     window.openAdminDashboard = function() {
+        const isAdmin = currentUser && currentUser.email && currentUser.email.toLowerCase().trim() === 'support@bassentreprises.com';
+        if (!isAdmin) {
+            alert("Accès refusé. L'Espace Administration est strictement réservé au compte support@bassentreprises.com.");
+            return;
+        }
         const overlay = document.getElementById('adminOverlay');
         if (overlay) {
             overlay.classList.remove('hidden');
