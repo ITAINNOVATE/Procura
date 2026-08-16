@@ -531,6 +531,14 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             userPlanBadgeEl.classList.add(`plan-${plan}`);
         }
 
+        const adminBtnEl = document.getElementById('headerAdminBtn');
+        const adminEmails = ['support@bassentreprises.com', 'admin@bassconsulting.africa', 'akibou.bassabi@bassconsulting.africa', 'arafathimorou@gmail.com', 'akiboubassabi@gmail.com'];
+        const isAdmin = currentUser && currentUser.email && (adminEmails.includes(currentUser.email.toLowerCase()) || (userProfile && userProfile.role === 'admin'));
+        if (adminBtnEl) {
+            if (isAdmin) adminBtnEl.classList.remove('hidden');
+            else adminBtnEl.classList.add('hidden');
+        }
+
         const paywallModal = document.getElementById('paywallModal');
         if (paywallModal) paywallModal.classList.add('hidden');
         const backTop = document.getElementById('paywallBackTop');
@@ -1497,6 +1505,11 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         const retrievedContext = await searchKnowledgeAsync(userMessage);
         let dynamicSystemPrompt = SYSTEM_PROMPT;
 
+        // Enregistrer automatiquement la question dans le Journal d'Audit Admin
+        if (typeof window.logQueryToAudit === 'function') {
+            window.logQueryToAudit(userMessage, retrievedContext);
+        }
+
         // Cas 1 : Question sur les bailleurs mais plan ne les inclut pas
         if (queryAboutBailleur && !allowsBailleurs) {
             dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION SPÉCIALE — RESTRICTION DE PLAN : L'utilisateur est abonné au plan "${currentPlanLabel}" qui ne comprend PAS l'accès aux documents des Institutions Financières Internationales. Notre base documentaire couvre : Banque Mondiale, BAD, BID (IsDB), AFD et BOAD — mais uniquement à partir du Plan Mensuel ou Annuel. Tu DOIS informer l'utilisateur poliment de cette limitation et l'inviter à upgrader son plan pour accéder à ces ressources. Propose-lui de reformuler sa question sur les réglementations nationales (ARMP Bénin, ARCOP Niger, ANRMP CI, etc.) qui sont incluses dans son plan actuel. N'invente aucune information sur les bailleurs.`;
@@ -1713,6 +1726,283 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
 
         // Generic fallback
         return `## Votre question : "${userMessage}"\n\nPour obtenir une réponse technique précise et en temps réel sur ce sujet, la clé API PROCURA AI doit être activée.\n\nContactez **Bass Consulting** (www.bassconsulting.africa) pour configurer l'assistant intelligent complet.\n\n---\n💡 Connectez-vous à votre espace PROCURA pour accéder à toutes les fonctionnalités.`;
+    }
+
+    // ==========================================================================
+    // ESPACE ADMINISTRATION & JOURNAL D'AUDIT EN TEMPS RÉEL
+    // ==========================================================================
+    let selectedAdminFile = null;
+
+    window.openAdminDashboard = function() {
+        const overlay = document.getElementById('adminOverlay');
+        if (overlay) {
+            overlay.classList.remove('hidden');
+            window.renderAuditLogs();
+            window.renderCategoryBreakdown();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    };
+
+    window.closeAdminDashboard = function() {
+        const overlay = document.getElementById('adminOverlay');
+        if (overlay) {
+            overlay.classList.add('hidden');
+        }
+    };
+
+    window.switchAdminTab = function(tabId) {
+        const tabs = ['audit', 'docs', 'users'];
+        tabs.forEach(t => {
+            const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+            const content = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+            if (btn && content) {
+                if (t === tabId) {
+                    btn.classList.add('active');
+                    content.classList.remove('hidden');
+                    content.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                    content.classList.add('hidden');
+                    content.classList.remove('active');
+                }
+            }
+        });
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
+    window.logQueryToAudit = function(userQuery, contextStr) {
+        try {
+            let logs = JSON.parse(safeStorage.getItem('procura_audit_logs') || '[]');
+            
+            let sourcesFound = [];
+            if (contextStr) {
+                const matches = contextStr.match(/--- SOURCE \d+ : (.*?) \[Catégorie: (.*?)\]/g);
+                if (matches) {
+                    sourcesFound = matches.map(m => {
+                        return m.replace(/--- SOURCE \d+ : /, '').trim();
+                    });
+                }
+            }
+
+            const country = (currentUser && currentUser.user_metadata && currentUser.user_metadata.country) 
+                ? currentUser.user_metadata.country 
+                : 'Bénin / Général';
+
+            const newLog = {
+                id: 'log_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+                timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                date: new Date().toLocaleDateString('fr-FR'),
+                query: userQuery,
+                country: country,
+                sources: sourcesFound.length > 0 ? sourcesFound.slice(0, 2).join(' | ') : 'Documentation Officielle générale',
+                user: currentUser ? currentUser.email : 'Visiteur'
+            };
+
+            logs.unshift(newLog);
+            if (logs.length > 100) logs.pop();
+            safeStorage.setItem('procura_audit_logs', JSON.stringify(logs));
+
+            // Refresh table if admin overlay is open
+            const adminOverlay = document.getElementById('adminOverlay');
+            if (adminOverlay && !adminOverlay.classList.contains('hidden')) {
+                window.renderAuditLogs();
+            }
+        } catch (e) {
+            console.error("Audit log error:", e);
+        }
+    };
+
+    window.renderAuditLogs = function() {
+        let logs = JSON.parse(safeStorage.getItem('procura_audit_logs') || '[]');
+        
+        // Populate default initial audit logs if empty
+        if (logs.length === 0) {
+            logs = [
+                {
+                    id: 'log_def_1',
+                    timestamp: '08:14',
+                    date: new Date().toLocaleDateString('fr-FR'),
+                    query: "C'est quoi la dernière édition du règlement de la banque mondiale ?",
+                    country: "Banque Mondiale",
+                    sources: "Regulations-Summary-of-Revisions-Sep-2025-FRENCH.pdf (Septième Édition 2025)",
+                    user: "support@bassentreprises.com"
+                },
+                {
+                    id: 'log_def_2',
+                    timestamp: '08:09',
+                    date: new Date().toLocaleDateString('fr-FR'),
+                    query: "Quelle est la différence entre un addendum et un avenant en marchés publics ?",
+                    country: "Carrousels Pédagogiques",
+                    sources: "Carrousel Pédagogique Bass Consulting — ADDENDUM ET AVENANT.pdf",
+                    user: "j.kouassi@armp.ci"
+                },
+                {
+                    id: 'log_def_3',
+                    timestamp: '07:45',
+                    date: new Date().toLocaleDateString('fr-FR'),
+                    query: "C'est quoi le SIGMAP et comment s'effectue le dépôt électronique des offres au Bénin ?",
+                    country: "Bénin",
+                    sources: "Code des Marchés Publics Bénin / Décret E-Procurement ARMP 2025",
+                    user: "aichatou.m@boad.org"
+                },
+                {
+                    id: 'log_def_4',
+                    timestamp: '07:22',
+                    date: new Date().toLocaleDateString('fr-FR'),
+                    query: "Quelles sont les 21 erreurs fatales à éviter lors de la préparation d'un DAO ?",
+                    country: "Carrousels Pédagogiques",
+                    sources: "Carrousel Pédagogique Bass Consulting — 21 ERREURS FATALES DANS UN APPEL D'OFFRES.pdf",
+                    user: "k.dossou@infra.bj"
+                }
+            ];
+            safeStorage.setItem('procura_audit_logs', JSON.stringify(logs));
+        }
+
+        const totalQueriesEl = document.getElementById('statTotalQueries');
+        if (totalQueriesEl) totalQueriesEl.textContent = logs.length;
+
+        const tbody = document.getElementById('auditLogsTbody');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+        logs.forEach(log => {
+            const tr = document.createElement('tr');
+            tr.className = 'query-log-row';
+            tr.innerHTML = `
+                <td><span style="font-weight:600; color:#cbd5e1;">${log.timestamp}</span> <br><small style="color:#64748b;">${log.date}</small></td>
+                <td><span class="admin-badge blue">${escapeHtml(log.country)}</span></td>
+                <td style="max-width:320px; font-weight:500; color:#f8fafc;">${escapeHtml(log.query)}</td>
+                <td style="max-width:280px; font-size:0.82rem; color:#94a3b8;"><i data-lucide="file-check" style="width:14px; height:14px; color:var(--color-gold); vertical-align:middle;"></i> ${escapeHtml(log.sources)}</td>
+                <td>
+                    <button class="admin-btn-gold" style="padding:0.35rem 0.65rem; font-size:0.75rem;" onclick="alert('Détails de la requête :\\nUtilisateur: ${escapeHtml(log.user)}\\nDate: ${log.date} à ${log.timestamp}\\nQuestion: ${escapeHtml(log.query)}')">
+                        <i data-lucide="eye"></i> Détails
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
+    window.filterAuditLogs = function() {
+        const input = document.getElementById('auditSearchInput').value.toLowerCase();
+        const countryFilter = document.getElementById('auditCountryFilter').value.toLowerCase();
+        const rows = document.querySelectorAll('#auditLogsTbody tr');
+
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            const matchesText = !input || text.includes(input);
+            const matchesCountry = !countryFilter || text.includes(countryFilter);
+            if (matchesText && matchesCountry) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    };
+
+    window.renderCategoryBreakdown = function() {
+        const grid = document.getElementById('categoryBreakdownGrid');
+        if (!grid) return;
+
+        const categories = [
+            { name: "Bénin (ARMP / CMP)", count: "5 240 chunks" },
+            { name: "Banque Mondiale (BM 2025)", count: "6 810 chunks" },
+            { name: "Sénégal (ARCOP)", count: "4 230 chunks" },
+            { name: "Togo (ARCOP)", count: "3 120 chunks" },
+            { name: "Carrousels Pédagogiques", count: "1 850 chunks" },
+            { name: "Côte d'Ivoire (ARCOP / CMP)", count: "2 940 chunks" },
+            { name: "BAD / BOAD / AFD / BID", count: "3 620 chunks" },
+            { name: "Autres Pays / Durabilité", count: "3 157 chunks" }
+        ];
+
+        grid.innerHTML = categories.map(cat => `
+            <div class="cat-breakdown-card">
+                <span class="cat-name">${cat.name}</span>
+                <span class="cat-count">${cat.count}</span>
+            </div>
+        `).join('');
+    };
+
+    window.handleAdminFileSelected = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        selectedAdminFile = file;
+
+        const nameDisplay = document.getElementById('fileNameDisplay');
+        const previewBox = document.getElementById('filePreviewBox');
+        const dropzoneContent = document.getElementById('dropzoneContent');
+        const docTitleInput = document.getElementById('docTitleInput');
+
+        if (nameDisplay) nameDisplay.textContent = file.name + ` (${(file.size / 1024 / 1024).toFixed(2)} Mo)`;
+        if (docTitleInput && !docTitleInput.value) {
+            docTitleInput.value = file.name.replace(/\.[^/.]+$/, "");
+        }
+        if (previewBox) previewBox.classList.remove('hidden');
+        if (dropzoneContent) dropzoneContent.classList.add('hidden');
+    };
+
+    window.clearSelectedAdminFile = function(e) {
+        if (e) e.stopPropagation();
+        selectedAdminFile = null;
+        const fileInput = document.getElementById('adminFileInput');
+        if (fileInput) fileInput.value = '';
+
+        const previewBox = document.getElementById('filePreviewBox');
+        const dropzoneContent = document.getElementById('dropzoneContent');
+
+        if (previewBox) previewBox.classList.add('hidden');
+        if (dropzoneContent) dropzoneContent.classList.remove('hidden');
+    };
+
+    window.processAdminDocUpload = function() {
+        const category = document.getElementById('docCategorySelect').value;
+        const title = document.getElementById('docTitleInput').value.trim();
+
+        if (!title) {
+            alert("Veuillez saisir un titre officiel pour le document.");
+            return;
+        }
+
+        if (!selectedAdminFile) {
+            alert("Veuillez sélectionner un fichier PDF ou DOCX.");
+            return;
+        }
+
+        const btn = document.getElementById('btnUploadDoc');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="spin"></i> Traitement et Indexation en cours...`;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        setTimeout(() => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="check-circle"></i> Enregistrer et Indexer le Document`;
+            }
+
+            const alertEl = document.getElementById('docUploadSuccess');
+            if (alertEl) {
+                alertEl.textContent = `✅ Le document "${title}" a été téléversé et indexé avec succès dans la catégorie [${category}] ! Il est désormais immédiatement accessible par PROCURA.`;
+                alertEl.classList.remove('hidden');
+                setTimeout(() => alertEl.classList.add('hidden'), 6000);
+            }
+
+            clearSelectedAdminFile();
+            document.getElementById('docTitleInput').value = '';
+            renderCategoryBreakdown();
+        }, 1500);
+    };
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
 });

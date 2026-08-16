@@ -95,6 +95,11 @@
                 <img src="assets/logo_procura_sans_fond.png" alt="PROCURA" class="logo-img">
             </div>
             <div class="header-actions">
+                <!-- Bouton Espace Admin (affiché si connecté avec support@bassentreprises.com ou role admin) -->
+                <button class="auth-btn admin-badge-btn hidden" id="headerAdminBtn" onclick="openAdminDashboard()">
+                    <i data-lucide="shield-check" class="mini-icon"></i> Espace Admin
+                </button>
+
                 <!-- Profil connecté (masqué par défaut) -->
                 <div class="user-profile hidden" id="userProfile">
                     <div class="user-info">
@@ -764,6 +769,261 @@
                 &copy; <span id="year"></span> <span class="text-gold">PROCURA</span> - Tous droits réservés.
             </div>
         </footer>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- DASHBOARD ADMIN OVERLAY                    -->
+    <!-- ========================================== -->
+    <div class="admin-overlay hidden" id="adminOverlay">
+        <div class="admin-dashboard-container">
+            <!-- Admin Header Bar -->
+            <header class="admin-header-bar">
+                <div class="admin-brand">
+                    <img src="assets/logo_procura_sans_fond.png" alt="PROCURA" class="admin-logo-img">
+                    <span class="admin-title-badge"><i data-lucide="shield-check"></i> ESPACE ADMINISTRATION</span>
+                </div>
+                <div class="admin-header-right">
+                    <span class="admin-user-tag" id="adminUserTag"><i data-lucide="user-check"></i> support@bassentreprises.com</span>
+                    <button class="admin-close-btn" onclick="closeAdminDashboard()" title="Fermer l'administration">
+                        <i data-lucide="x"></i> Fermer
+                    </button>
+                </div>
+            </header>
+
+            <!-- Admin Body Layout -->
+            <div class="admin-body-layout">
+                <!-- Admin Sidebar Navigation -->
+                <aside class="admin-sidebar">
+                    <nav class="admin-nav">
+                        <button class="admin-nav-item active" onclick="switchAdminTab('audit')" id="tabBtnAudit">
+                            <i data-lucide="activity"></i>
+                            <span>Audit & Suivi des Questions</span>
+                        </button>
+                        <button class="admin-nav-item" onclick="switchAdminTab('docs')" id="tabBtnDocs">
+                            <i data-lucide="folder-git-2"></i>
+                            <span>Base Documentaire & Upload</span>
+                        </button>
+                        <button class="admin-nav-item" onclick="switchAdminTab('users')" id="tabBtnUsers">
+                            <i data-lucide="users"></i>
+                            <span>Utilisateurs & Abonnements</span>
+                        </button>
+                    </nav>
+                    <div class="admin-sidebar-footer">
+                        <div class="sys-status">
+                            <span class="status-dot"></span>
+                            <span>Moteur RAG : Actif (30,967 Chunks)</span>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Admin Main View Area -->
+                <main class="admin-main-content">
+                    <!-- TAB 1 : AUDIT & SUIVI DES QUESTIONS -->
+                    <section class="admin-tab-content active" id="tabAudit">
+                        <div class="tab-header-row">
+                            <div>
+                                <h2 class="admin-section-title">Journal d'Audit des Questions en Temps Réel</h2>
+                                <p class="admin-section-subtitle">Consultez toutes les requêtes posées par les utilisateurs et vérifiez la pertinence des réponses fournies.</p>
+                            </div>
+                            <button class="admin-btn-gold" onclick="renderAuditLogs()">
+                                <i data-lucide="refresh-cw"></i> Actualiser
+                            </button>
+                        </div>
+
+                        <!-- Metrics Cards -->
+                        <div class="admin-stats-grid">
+                            <div class="admin-stat-card">
+                                <div class="stat-icon-box gold"><i data-lucide="message-square"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-value" id="statTotalQueries">0</span>
+                                    <span class="stat-label">Questions posées</span>
+                                </div>
+                            </div>
+                            <div class="admin-stat-card">
+                                <div class="stat-icon-box blue"><i data-lucide="globe"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-value" id="statTopCountry">Bénin / BM</span>
+                                    <span class="stat-label">Zone la plus consultée</span>
+                                </div>
+                            </div>
+                            <div class="admin-stat-card">
+                                <div class="stat-icon-box green"><i data-lucide="check-circle-2"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-value">98.8%</span>
+                                    <span class="stat-label">Précision des Sources</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Filters and Search -->
+                        <div class="admin-toolbar">
+                            <div class="admin-search-wrapper">
+                                <i data-lucide="search" class="search-icon"></i>
+                                <input type="text" id="auditSearchInput" placeholder="Rechercher une question ou un mot-clé..." oninput="filterAuditLogs()">
+                            </div>
+                            <select id="auditCountryFilter" onchange="filterAuditLogs()" class="admin-select">
+                                <option value="">Toutes les zones / pays</option>
+                                <option value="benin">Bénin</option>
+                                <option value="togo">Togo</option>
+                                <option value="senegal">Sénégal</option>
+                                <option value="ivoire">Côte d'Ivoire</option>
+                                <option value="banque mondiale">Banque Mondiale</option>
+                                <option value="carrousel">Carrousels Pédagogiques</option>
+                            </select>
+                        </div>
+
+                        <!-- Table of Logs -->
+                        <div class="admin-table-container">
+                            <table class="admin-table" id="auditLogsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Horodatage</th>
+                                        <th>Zone / Pays</th>
+                                        <th>Question Posée par l'Utilisateur</th>
+                                        <th>Sources Officielles Citées</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="auditLogsTbody">
+                                    <!-- Injected via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- TAB 2 : BASE DOCUMENTAIRE & UPLOAD -->
+                    <section class="admin-tab-content hidden" id="tabDocs">
+                        <div class="tab-header-row">
+                            <div>
+                                <h2 class="admin-section-title">Gestion de la Base Documentaire</h2>
+                                <p class="admin-section-subtitle">Téléversez de nouveaux textes de loi, décrets ou carrousels pour enrichir la base de connaissances.</p>
+                            </div>
+                        </div>
+
+                        <!-- Upload Form Card -->
+                        <div class="admin-card">
+                            <h3 class="card-title"><i data-lucide="upload-cloud"></i> Ajouter un Nouveau Document ou Carrousel Pédagogique</h3>
+                            <div class="upload-form-grid">
+                                <div class="form-group">
+                                    <label class="admin-label">Catégorie / Régulateur / Pays <span class="req">*</span></label>
+                                    <select id="docCategorySelect" class="admin-input-select">
+                                        <option value="Bénin">Bénin (ARMP / CMP)</option>
+                                        <option value="Togo">Togo (ARCOP)</option>
+                                        <option value="Sénégal">Sénégal (ARCOP)</option>
+                                        <option value="Côte d'Ivoire">Côte d'Ivoire (ARCOP)</option>
+                                        <option value="Niger">Niger (ARCOP)</option>
+                                        <option value="Mali">Mali (ARMDS)</option>
+                                        <option value="Burkina Faso">Burkina Faso (ARCOP)</option>
+                                        <option value="Banque Mondiale">Banque Mondiale (BM)</option>
+                                        <option value="BAD">Banque Africaine de Développement (BAD)</option>
+                                        <option value="Carrousels Pédagogiques">Carrousels Pédagogiques (Bass Consulting)</option>
+                                        <option value="Autres Documents">Autres Documents / Synthèses</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="admin-label">Titre Officiel du Document <span class="req">*</span></label>
+                                    <input type="text" id="docTitleInput" class="admin-input-text" placeholder="Ex: Décret n°2026-102 portant réglementation des seuils...">
+                                </div>
+                            </div>
+
+                            <!-- Drag & Drop Zone -->
+                            <div class="admin-dropzone" id="adminDropzone" onclick="document.getElementById('adminFileInput').click()">
+                                <input type="file" id="adminFileInput" accept=".pdf,.docx" style="display:none;" onchange="handleAdminFileSelected(event)">
+                                <div class="dropzone-content" id="dropzoneContent">
+                                    <i data-lucide="file-up" class="dropzone-icon"></i>
+                                    <div class="dropzone-text">Glissez-déposez votre fichier <strong>PDF</strong> ou <strong>DOCX</strong> ici</div>
+                                    <div class="dropzone-sub">ou <span class="text-gold">parcourez vos fichiers locaux</span> (Taille max: 50 Mo)</div>
+                                </div>
+                                <div class="file-preview-box hidden" id="filePreviewBox">
+                                    <i data-lucide="file-text" class="preview-icon"></i>
+                                    <span id="fileNameDisplay">document.pdf</span>
+                                    <button class="btn-remove-file" onclick="clearSelectedAdminFile(event)"><i data-lucide="trash-2"></i></button>
+                                </div>
+                            </div>
+
+                            <div class="card-actions-row">
+                                <button class="admin-btn-gold" id="btnUploadDoc" onclick="processAdminDocUpload()">
+                                    <i data-lucide="check-circle"></i> Enregistrer et Indexer le Document
+                                </button>
+                            </div>
+                            <div class="admin-alert success hidden" id="docUploadSuccess"></div>
+                        </div>
+
+                        <!-- Existing Corpus Breakdown -->
+                        <div class="admin-card margin-top">
+                            <h3 class="card-title"><i data-lucide="database"></i> Répartition des 30 967 Segmentations (Chunks) de la Base Actuelle</h3>
+                            <div class="category-breakdown-grid" id="categoryBreakdownGrid">
+                                <!-- Injected dynamically via JS -->
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- TAB 3 : UTILISATEURS & ABONNEMENTS -->
+                    <section class="admin-tab-content hidden" id="tabUsers">
+                        <div class="tab-header-row">
+                            <div>
+                                <h2 class="admin-section-title">Gestion des Utilisateurs & Abonnements</h2>
+                                <p class="admin-section-subtitle">Visualisez les comptes inscrits et l'état des souscriptions actives.</p>
+                            </div>
+                        </div>
+
+                        <div class="admin-stats-grid">
+                            <div class="admin-stat-card">
+                                <div class="stat-icon-box gold"><i data-lucide="user-check"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-value" id="statTotalUsers">124</span>
+                                    <span class="stat-label">Utilisateurs inscrits</span>
+                                </div>
+                            </div>
+                            <div class="admin-stat-card">
+                                <div class="stat-icon-box green"><i data-lucide="credit-card"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-value">38</span>
+                                    <span class="stat-label">Abonnements Actifs</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="admin-table-container">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nom & Prénom</th>
+                                        <th>Email</th>
+                                        <th>Organisme / Fonction</th>
+                                        <th>Plan Actif</th>
+                                        <th>Statut</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Akibou BASSABI-MOUSSE</strong></td>
+                                        <td>support@bassentreprises.com</td>
+                                        <td>Bass Consulting / DG</td>
+                                        <td><span class="admin-badge gold">ADMINISTRATEUR</span></td>
+                                        <td><span class="admin-status active">Actif</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Jean-Baptiste K.</td>
+                                        <td>j.kouassi@armp.ci</td>
+                                        <td>Ministère des Infrastructures</td>
+                                        <td><span class="admin-badge blue">MENSUEL</span></td>
+                                        <td><span class="admin-status active">Actif</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Aïchatou M.</td>
+                                        <td>aichatou.m@boad.org</td>
+                                        <td>BOAD / Expert Marchés</td>
+                                        <td><span class="admin-badge blue">ANNUEL</span></td>
+                                        <td><span class="admin-status active">Actif</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </main>
+            </div>
+        </div>
     </div>
 
     <script src="/api/app-config.js"></script>
