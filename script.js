@@ -571,11 +571,20 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     }
 
     function updateUIForLoggedOut() {
+        currentUser = null;
+        userProfile = null;
+
         const guestActions = document.getElementById('guestActions');
         const userProfileEl = document.getElementById('userProfile');
+        const headerAdminBtn = document.getElementById('headerAdminBtn');
         
         if (guestActions) guestActions.classList.remove('hidden');
         if (userProfileEl) userProfileEl.classList.add('hidden');
+        if (headerAdminBtn) headerAdminBtn.classList.add('hidden');
+
+        if (typeof window.closeAdminDashboard === 'function') {
+            window.closeAdminDashboard();
+        }
 
         // Connexion obligatoire : verrouiller immédiatement le chat
         lockInput();
@@ -1195,10 +1204,48 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
 
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
-            if (supabase) {
-                await supabase.auth.signOut();
-                window.location.reload();
+            try {
+                if (supabase) {
+                    await supabase.auth.signOut({ scope: 'global' });
+                }
+            } catch (err) {
+                console.error("SignOut error:", err);
             }
+
+            // Purge local storage and session storage tokens
+            try {
+                safeStorage.removeItem('procura_user');
+                safeStorage.removeItem('procura_plan');
+                safeStorage.removeItem('procura_q_count');
+                safeStorage.removeItem('procura_plan_start');
+
+                const keysToPurge = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (k && (k.includes('sb-') || k.includes('supabase') || k.includes('auth'))) {
+                        keysToPurge.push(k);
+                    }
+                }
+                keysToPurge.forEach(k => localStorage.removeItem(k));
+
+                const sessionKeysToPurge = [];
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const k = sessionStorage.key(i);
+                    if (k && (k.includes('sb-') || k.includes('supabase') || k.includes('auth'))) {
+                        sessionKeysToPurge.push(k);
+                    }
+                }
+                sessionKeysToPurge.forEach(k => sessionStorage.removeItem(k));
+            } catch (e) {
+                console.warn("Storage cleanup warning:", e);
+            }
+
+            currentUser = null;
+            userProfile = null;
+            updateUIForLoggedOut();
+
+            // Refresh page cleanly to reset app state
+            window.location.href = window.location.origin + window.location.pathname;
         });
     }
 
