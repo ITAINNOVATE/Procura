@@ -357,14 +357,14 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
 
         // Non connecté : inviter à se connecter
         if (!currentUser) {
-            counterText.innerHTML = '🔐 <strong>Connexion requise</strong> — <span style="font-size:0.85em">Créez un compte pour accéder à Procura</span>';
+            counterText.innerHTML = '<strong>Connexion requise</strong> — <span style="font-size:0.85em">Créez un compte pour accéder à Procura</span>';
             if (counterEl) counterEl.classList.add('counter-exhausted');
             return;
         }
 
         const isSupportAdmin = currentUser.email && currentUser.email.toLowerCase().trim() === 'support@bassentreprises.com';
         if (isSupportAdmin) {
-            counterText.innerHTML = `🛡️ <strong>Compte Administrateur (Bass Consulting)</strong> — Questions <strong>illimitées</strong>`;
+            counterText.innerHTML = `<strong>Compte Administrateur (Bass Consulting)</strong> — Questions <strong>illimitées</strong>`;
             if (counterEl) counterEl.classList.remove('counter-exhausted');
             return;
         }
@@ -376,7 +376,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             const plan = userProfile.plan || 'free';
             if (plan === 'monthly' || plan === 'annual') {
                 const planLabel = plan === 'monthly' ? 'Mensuel' : 'Annuel';
-                counterText.innerHTML = `🌟 <strong>Plan ${planLabel}</strong> — Questions <strong>illimitées</strong>`;
+                counterText.innerHTML = `<strong>Plan ${planLabel}</strong> — Questions <strong>illimitées</strong>`;
                 if (counterEl) counterEl.classList.remove('counter-exhausted');
                 return;
             }
@@ -388,12 +388,12 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
 
         if (remaining === 0) {
             const period = userProfile && userProfile.plan === 'weekly' ? 'cette semaine' : userProfile && userProfile.plan === 'daily' ? 'aujourd\'hui' : 'aujourd\'hui';
-            counterText.innerHTML = `🔒 Quota épuisé ${period} — <strong class="choose-plan-trigger" onclick="window.goToStep('stepPlans'); document.getElementById('paywallModal').classList.remove('hidden');">Passer au plan supérieur</strong>`;
+            counterText.innerHTML = `Quota épuisé ${period} — <strong class="choose-plan-trigger" onclick="window.goToStep('stepPlans'); document.getElementById('paywallModal').classList.remove('hidden');">Passer au plan supérieur</strong>`;
             if (counterEl) counterEl.classList.add('counter-exhausted');
         } else {
             const color = remaining <= 2 ? '#e55' : 'var(--color-gold)';
             const plural = remaining > 1 ? 's' : '';
-            counterText.innerHTML = `💬 <strong style="color:${color}">${remaining} question${plural}</strong> restante${plural} ${periodLabel}`;
+            counterText.innerHTML = `<strong style="color:${color}">${remaining} question${plural}</strong> restante${plural} ${periodLabel}`;
             if (counterEl) counterEl.classList.remove('counter-exhausted');
         }
     }
@@ -748,7 +748,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         
         if (!selectedPlan || !PLAN_PRICES[selectedPlan]) {
             if (errorEl) {
-                errorEl.textContent = "❌ Aucun plan sélectionné. Veuillez revenir en arrière.";
+                errorEl.textContent = "Aucun plan sélectionné. Veuillez revenir en arrière.";
                 errorEl.classList.remove('hidden');
             }
             return;
@@ -756,7 +756,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
 
         if (typeof FedaPay === 'undefined') {
             if (errorEl) {
-                errorEl.textContent = "⚠️ Impossible de charger le module de paiement FedaPay. Vérifiez votre connexion internet.";
+                errorEl.textContent = "Impossible de charger le module de paiement FedaPay. Vérifiez votre connexion internet.";
                 errorEl.classList.remove('hidden');
             }
             return;
@@ -851,7 +851,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                                 // Message de confirmation premium
                                 const planLabels = { daily: 'Journalier (3 questions/jour)', weekly: 'Hebdomadaire (20 questions/semaine)', monthly: 'Mensuel (illimité)', annual: 'Annuel (illimité)' };
                                 const fullPlanLabel = planLabels[selectedPlan] || planName;
-                                alert(`🎉 Félicitations !\n\nVotre paiement de ${PLAN_PRICES[selectedPlan].toLocaleString('fr-FR')} FCFA a été validé avec succès.\n\nVotre abonnement "${fullPlanLabel}" est désormais actif. Profitez pleinement de PROCURA !`);
+                                alert(`Félicitations !\n\nVotre paiement de ${PLAN_PRICES[selectedPlan].toLocaleString('fr-FR')} FCFA a été validé avec succès.\n\nVotre abonnement "${fullPlanLabel}" est désormais actif. Profitez pleinement de PROCURA !`);
                                 
                             } catch (err) {
                                 console.error("Erreur lors de l'activation du plan:", err);
@@ -1001,7 +1001,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         
         if (password !== confirmPassword) {
             if (errorEl) {
-                errorEl.textContent = "❌ Les mots de passe ne correspondent pas.";
+                errorEl.textContent = "Les mots de passe ne correspondent pas.";
                 errorEl.classList.remove('hidden');
             }
             return;
@@ -1120,7 +1120,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             }
         } else {
             if (successEl) {
-                successEl.textContent = "✅ Compte créé avec succès (Mode Démonstration).";
+                successEl.textContent = "Compte créé avec succès (Mode Démonstration).";
                 successEl.classList.remove('hidden');
             }
         }
@@ -1139,7 +1139,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
 
         if (!email || !password) {
             if (errorEl) {
-                errorEl.textContent = "❌ Veuillez remplir tous les champs.";
+                errorEl.textContent = "Veuillez remplir tous les champs.";
                 errorEl.classList.remove('hidden');
             }
             return;
@@ -1214,16 +1214,16 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             }
 
             if (errorEl) {
-                let msg = "❌ Erreur de connexion.";
+                let msg = "Erreur de connexion.";
                 if (err && err.message) {
                     if (err.message.includes('Invalid login credentials') || err.message.includes('invalid_credentials')) {
-                        msg = "❌ E-mail ou mot de passe incorrect.";
+                        msg = "E-mail ou mot de passe incorrect.";
                     } else if (err.message.includes('Email not confirmed')) {
-                        msg = "❌ Veuillez confirmer votre e-mail avant de vous connecter.";
+                        msg = "Veuillez confirmer votre e-mail avant de vous connecter.";
                     } else if (isNetworkError) {
-                        msg = "❌ Connexion au serveur d'authentification impossible. Vérifiez votre connexion internet.";
+                        msg = "Connexion au serveur d'authentification impossible. Vérifiez votre connexion internet.";
                     } else {
-                        msg = "❌ " + err.message;
+                        msg = err.message;
                     }
                 }
                 errorEl.textContent = msg;
@@ -1458,12 +1458,12 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         const content = document.createElement('div');
         content.className = 'message-content';
         content.innerHTML = `
-            <p>👋 <strong>Bienvenue sur PROCURA !</strong></p>
+            <p><strong>Bienvenue sur PROCURA !</strong></p>
             <p>Pour poser votre question et accéder à notre assistant expert en marchés publics, veuillez vous <strong>connecter</strong> ou <strong>créer votre compte</strong>.</p>
             <p>Après connexion, vous bénéficierez d'<strong>une question gratuite</strong> pour découvrir PROCURA.</p>
             <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-                <button onclick="window.goToStep('stepForm'); document.getElementById('paywallModal').classList.remove('hidden');" style="background:var(--color-gold);color:#111;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem;">🔑 Se connecter</button>
-                <button onclick="window.goToStep('stepSignUp'); document.getElementById('paywallModal').classList.remove('hidden');" style="background:transparent;color:var(--color-gold);border:2px solid var(--color-gold);padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem;">✨ Créer un compte</button>
+                <button onclick="window.goToStep('stepForm'); document.getElementById('paywallModal').classList.remove('hidden');" style="background:var(--color-gold);color:#111;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem;">Se connecter</button>
+                <button onclick="window.goToStep('stepSignUp'); document.getElementById('paywallModal').classList.remove('hidden');" style="background:transparent;color:var(--color-gold);border:2px solid var(--color-gold);padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem;">Créer un compte</button>
             </div>
         `;
 
@@ -1486,10 +1486,10 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         const content = document.createElement('div');
         content.className = 'message-content';
         content.innerHTML = `
-            <p>🔒 <strong>Votre question gratuite a été utilisée.</strong></p>
+            <p><strong>Votre question gratuite a été utilisée.</strong></p>
             <p>Pour continuer à bénéficier de l'expertise PROCURA en marchés publics, choisissez le plan qui correspond à vos besoins :</p>
             <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-                <button onclick="window.goToStep('stepPlans'); document.getElementById('paywallModal').classList.remove('hidden');" style="background:var(--color-gold);color:#111;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem;">🌟 Voir les plans</button>
+                <button onclick="window.goToStep('stepPlans'); document.getElementById('paywallModal').classList.remove('hidden');" style="background:var(--color-gold);color:#111;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem;">Voir les plans</button>
             </div>
         `;
 
@@ -2088,36 +2088,21 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         const cat = category || 'Général';
         const lower = cat.toLowerCase();
         let cls = 'country';
-        let icon = '📍';
 
-        if (lower.includes('bénin') || lower.includes('benin')) { icon = '🇧🇯'; cls = 'country'; }
-        else if (lower.includes('sénégal') || lower.includes('senegal')) { icon = '🇸🇳'; cls = 'country'; }
-        else if (lower.includes('ivoire')) { icon = '🇨🇮'; cls = 'country'; }
-        else if (lower.includes('burkina')) { icon = '🇧🇫'; cls = 'country'; }
-        else if (lower.includes('togo')) { icon = '🇹🇬'; cls = 'country'; }
-        else if (lower.includes('guinée') || lower.includes('guinee')) { icon = '🇬🇳'; cls = 'country'; }
-        else if (lower.includes('mali')) { icon = '🇲🇱'; cls = 'country'; }
-        else if (lower.includes('cameroun')) { icon = '🇨🇲'; cls = 'country'; }
-        else if (lower.includes('rdc') || lower.includes('congo-kinshasa')) { icon = '🇨🇩'; cls = 'country'; }
-        else if (lower.includes('congo')) { icon = '🇨🇬'; cls = 'country'; }
-        else if (lower.includes('gabon')) { icon = '🇬🇦'; cls = 'country'; }
-        else if (lower.includes('niger')) { icon = '🇳🇪'; cls = 'country'; }
-        else if (lower.includes('centrafrique')) { icon = '🇨🇫'; cls = 'country'; }
-        else if (lower.includes('tchad')) { icon = '🇹🇩'; cls = 'country'; }
-        else if (lower.includes('banque mondiale') || lower.includes('bad') || lower.includes('bid') || lower.includes('afd') || lower.includes('boad') || lower.includes('uemoa')) {
-            icon = '🏛️'; cls = 'institution';
+        if (lower.includes('banque mondiale') || lower.includes('bad') || lower.includes('bid') || lower.includes('afd') || lower.includes('boad') || lower.includes('uemoa')) {
+            cls = 'institution';
         }
         else if (lower.includes('emploi') || lower.includes('recrutement')) {
-            icon = '💼'; cls = 'employment';
+            cls = 'employment';
         }
         else if (lower.includes('carrousel')) {
-            icon = '🎓'; cls = 'institution';
+            cls = 'institution';
         }
-        else {
-            icon = '📁'; cls = 'theme';
+        else if (lower.includes('audit') || lower.includes('durable') || lower.includes('autres') || lower.includes('général')) {
+            cls = 'theme';
         }
 
-        return `<span class="doc-category-tag ${cls}">${icon} ${escapeHtml(cat)}</span>`;
+        return `<span class="doc-category-tag ${cls}">${escapeHtml(cat)}</span>`;
     }
 
     window.renderDocCatalog = function() {
@@ -2316,7 +2301,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
 
             const alertEl = document.getElementById('docUploadSuccess');
             if (alertEl) {
-                alertEl.textContent = `✅ Le document "${title}" a été téléversé et indexé avec succès dans la catégorie [${category}] ! Il est désormais immédiatement accessible par PROCURA.`;
+                alertEl.textContent = `Le document "${title}" a été téléversé et indexé avec succès dans la catégorie [${category}] ! Il est désormais immédiatement accessible par PROCURA.`;
                 alertEl.classList.remove('hidden');
                 setTimeout(() => alertEl.classList.add('hidden'), 6000);
             }
