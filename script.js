@@ -1488,7 +1488,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                 messageDiv.id = 'typingIndicator';
                 chatHistory.appendChild(messageDiv);
                 lucide.createIcons({ root: messageDiv });
-                chatHistory.scrollTop = chatHistory.scrollHeight;
+                messageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 return;
             }
         }
@@ -1505,14 +1505,16 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         if (sender === 'user') {
             messageDiv.appendChild(content);
             messageDiv.appendChild(avatar);
+            chatHistory.appendChild(messageDiv);
+            lucide.createIcons({ root: messageDiv });
+            chatHistory.scrollTop = chatHistory.scrollHeight;
         } else {
             messageDiv.appendChild(avatar);
             messageDiv.appendChild(content);
+            chatHistory.appendChild(messageDiv);
+            lucide.createIcons({ root: messageDiv });
+            messageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-
-        chatHistory.appendChild(messageDiv);
-        lucide.createIcons({ root: messageDiv });
-        chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
     // ── Markdown → HTML renderer ───────────────────────────────
@@ -1665,6 +1667,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             messageDiv.appendChild(content);
             chatHistory.appendChild(messageDiv);
             lucide.createIcons({ root: messageDiv });
+            messageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
             // Stream the response
             const reader = res.body.getReader();
@@ -1690,7 +1693,6 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                             if (text) {
                                 fullText += text;
                                 content.innerHTML = renderMarkdown(fullText);
-                                chatHistory.scrollTop = chatHistory.scrollHeight;
                             }
                         } catch (_) { /* skip malformed chunks */ }
                     }
