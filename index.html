@@ -867,32 +867,77 @@
                         </div>
                     </section>
 
-                    <!-- TAB 2 : BASE DOCUMENTAIRE & UPLOAD -->
+                    <!-- TAB 2 : BASE DOCUMENTAIRE & RÉPERTOIRE -->
                     <section class="admin-tab-content hidden" id="tabDocs">
                         <div class="tab-header-row">
                             <div>
-                                <h2 class="admin-section-title">Gestion de la Base Documentaire</h2>
-                                <p class="admin-section-subtitle">Téléversez de nouveaux textes de loi, décrets ou carrousels pour enrichir la base de connaissances.</p>
+                                <h2 class="admin-section-title">Répertoire & Explorateur de la Base Documentaire</h2>
+                                <p class="admin-section-subtitle">Accédez à l'intégralité des 673 textes officiels, décrets, directives de bailleurs et guides indexés dans PROCURA.</p>
+                            </div>
+                            <button class="admin-btn-gold" onclick="toggleUploadDocSection()">
+                                <i data-lucide="plus-circle"></i> Ajouter un Document
+                            </button>
+                        </div>
+
+                        <!-- Global Documentation Stats -->
+                        <div class="admin-stats-grid">
+                            <div class="admin-stat-card">
+                                <div class="stat-icon-box gold"><i data-lucide="folder-check"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-value" id="statCatalogDocs">673</span>
+                                    <span class="stat-label">Documents Officiels Indexés</span>
+                                </div>
+                            </div>
+                            <div class="admin-stat-card">
+                                <div class="stat-icon-box blue"><i data-lucide="layers"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-value">32 339</span>
+                                    <span class="stat-label">Fragments (Chunks RAG)</span>
+                                </div>
+                            </div>
+                            <div class="admin-stat-card">
+                                <div class="stat-icon-box green"><i data-lucide="globe"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-value">14 Pays + 6 Bailleurs</span>
+                                    <span class="stat-label">Couverture Géographique & IFI</span>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Upload Form Card -->
-                        <div class="admin-card">
-                            <h3 class="card-title"><i data-lucide="upload-cloud"></i> Ajouter un Nouveau Document ou Carrousel Pédagogique</h3>
+                        <!-- Upload Form Card (Collapsible) -->
+                        <div class="admin-card margin-top hidden" id="adminUploadSection">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                                <h3 class="card-title" style="margin-bottom:0;"><i data-lucide="upload-cloud"></i> Téléverser un Nouveau Document / Carrousel</h3>
+                                <button class="btn-remove-file" style="font-size:1.2rem; color:#94a3b8;" onclick="toggleUploadDocSection()">✕</button>
+                            </div>
                             <div class="upload-form-grid">
                                 <div class="form-group">
                                     <label class="admin-label">Catégorie / Régulateur / Pays <span class="req">*</span></label>
                                     <select id="docCategorySelect" class="admin-input-select">
                                         <option value="Bénin">Bénin (ARMP / CMP)</option>
-                                        <option value="Togo">Togo (ARCOP)</option>
                                         <option value="Sénégal">Sénégal (ARCOP)</option>
-                                        <option value="Côte d'Ivoire">Côte d'Ivoire (ARCOP)</option>
-                                        <option value="Niger">Niger (ARCOP)</option>
-                                        <option value="Mali">Mali (ARMDS)</option>
+                                        <option value="Côte d'Ivoire">Côte d'Ivoire (ARCOP / CMP)</option>
                                         <option value="Burkina Faso">Burkina Faso (ARCOP)</option>
+                                        <option value="Togo">Togo (ARCOP)</option>
+                                        <option value="Guinée">Guinée (ARMP)</option>
+                                        <option value="Mali">Mali (ARMDS)</option>
+                                        <option value="Cameroun">Cameroun (ARMP)</option>
+                                        <option value="RDC (Congo-Kinshasa)">RDC (ARMP)</option>
+                                        <option value="Congo">Congo (ARMP)</option>
+                                        <option value="Gabon">Gabon (ARCOP)</option>
+                                        <option value="Niger">Niger (ARCOP)</option>
+                                        <option value="Centrafrique">Centrafrique (ARMP)</option>
+                                        <option value="Tchad">Tchad (ARMP)</option>
                                         <option value="Banque Mondiale">Banque Mondiale (BM)</option>
-                                        <option value="BAD">Banque Africaine de Développement (BAD)</option>
+                                        <option value="BAD (Banque Africaine de Développement)">Banque Africaine de Développement (BAD)</option>
+                                        <option value="BID (Banque Islamique de Développement)">Banque Islamique de Développement (BID / IsDB)</option>
+                                        <option value="AFD (Agence Française de Développement)">Agence Française de Développement (AFD)</option>
+                                        <option value="BOAD (Banque Ouest-Africaine de Développement)">BOAD</option>
+                                        <option value="UEMOA">UEMOA</option>
+                                        <option value="Aide Emploi et Recrutement">Aide Emploi et Recrutement (CV & Entretiens)</option>
                                         <option value="Carrousels Pédagogiques">Carrousels Pédagogiques (Bass Consulting)</option>
+                                        <option value="Audit et Contrôle des Finances Publiques">Audit & Contrôle (Normes INTOSAI)</option>
+                                        <option value="Marchés Durables">Marchés Durables & RSE</option>
                                         <option value="Autres Documents">Autres Documents / Synthèses</option>
                                     </select>
                                 </div>
@@ -925,9 +970,77 @@
                             <div class="admin-alert success hidden" id="docUploadSuccess"></div>
                         </div>
 
-                        <!-- Existing Corpus Breakdown -->
+                        <!-- Document Explorer Toolbar -->
+                        <div class="admin-toolbar margin-top">
+                            <div class="admin-search-wrapper" style="flex:2;">
+                                <i data-lucide="search" class="search-icon"></i>
+                                <input type="text" id="docSearchInput" placeholder="Rechercher par titre, mot-clé, loi, décret, carrousel..." oninput="filterDocCatalog()">
+                            </div>
+                            <select id="docCategoryFilter" onchange="filterDocCatalog()" class="admin-select" style="flex:1;">
+                                <option value="">Tous les répertoires (673 docs)</option>
+                                <optgroup label="── PAYS D'AFRIQUE ──">
+                                    <option value="Bénin">🇧🇯 Bénin (14)</option>
+                                    <option value="Burkina Faso">🇧🇫 Burkina Faso (53)</option>
+                                    <option value="Cameroun">🇨🇲 Cameroun (15)</option>
+                                    <option value="Centrafrique">🇨🇫 Centrafrique (2)</option>
+                                    <option value="Congo">🇨🇬 Congo (11)</option>
+                                    <option value="Côte d'Ivoire">🇨🇮 Côte d'Ivoire (46)</option>
+                                    <option value="Gabon">🇬🇦 Gabon (5)</option>
+                                    <option value="Guinée">🇬🇳 Guinée (22)</option>
+                                    <option value="Mali">🇲🇱 Mali (16)</option>
+                                    <option value="Niger">🇳🇪 Niger (3)</option>
+                                    <option value="RDC">🇨🇩 RDC (Congo-Kinshasa) (15)</option>
+                                    <option value="Sénégal">🇸🇳 Sénégal (123)</option>
+                                    <option value="Tchad">🇹🇩 Tchad (1)</option>
+                                    <option value="Togo">🇹🇬 Togo (32)</option>
+                                </optgroup>
+                                <optgroup label="── BAILLEURS & INSTITUTIONS ──">
+                                    <option value="Banque Mondiale">🏛️ Banque Mondiale (85)</option>
+                                    <option value="BAD">🏛️ BAD (21)</option>
+                                    <option value="BID">🏛️ BID (IsDB) (32)</option>
+                                    <option value="AFD">🏛️ AFD (16)</option>
+                                    <option value="BOAD">🏛️ BOAD (4)</option>
+                                    <option value="UEMOA">🏛️ UEMOA (4)</option>
+                                </optgroup>
+                                <optgroup label="── THÉMATIQUES & EMPLOI ──">
+                                    <option value="Aide Emploi">💼 Aide Emploi & Recrutement (21)</option>
+                                    <option value="Carrousels">🎓 Carrousels Pédagogiques</option>
+                                    <option value="Audit">📊 Audit & Finances Publiques (5)</option>
+                                    <option value="Marchés Durables">🌿 Marchés Durables (3)</option>
+                                    <option value="Autres">📁 Autres Textes & Synthèses (34)</option>
+                                    <option value="Général">🌐 Général (86)</option>
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        <!-- Catalog Document Table -->
+                        <div class="admin-table-container">
+                            <table class="admin-table" id="docCatalogTable">
+                                <thead>
+                                    <tr>
+                                        <th style="width:40%;">Titre Officiel du Document</th>
+                                        <th style="width:25%;">Catégorie / Pays / Institution</th>
+                                        <th style="width:12%; text-align:center;">Segments (Chunks)</th>
+                                        <th style="width:11%; text-align:center;">Statut</th>
+                                        <th style="width:12%; text-align:right;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="docCatalogTbody">
+                                    <!-- Injected dynamically via JS from documents_catalog.json -->
+                                </tbody>
+                            </table>
+                            <div id="catalogPaginationBar" style="display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem; background:#090d16; border-top:1px solid rgba(255,255,255,0.08); font-size:0.85rem; color:#94a3b8;">
+                                <span id="catalogCountDisplay">Chargement du catalogue...</span>
+                                <div style="display:flex; gap:0.5rem;">
+                                    <button class="admin-btn-gold" style="padding:0.35rem 0.75rem; font-size:0.8rem;" id="btnPrevPageDocs" onclick="prevDocsPage()"><i data-lucide="chevron-left"></i> Précédent</button>
+                                    <button class="admin-btn-gold" style="padding:0.35rem 0.75rem; font-size:0.8rem;" id="btnNextPageDocs" onclick="nextDocsPage()">Suivant <i data-lucide="chevron-right"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Category Breakdown Grid -->
                         <div class="admin-card margin-top">
-                            <h3 class="card-title"><i data-lucide="database"></i> Répartition des 32 339 Segmentations (Chunks) de la Base Actuelle</h3>
+                            <h3 class="card-title"><i data-lucide="pie-chart"></i> Vue Synthétique par Pôle Réglementaire & Bailleurs</h3>
                             <div class="category-breakdown-grid" id="categoryBreakdownGrid">
                                 <!-- Injected dynamically via JS -->
                             </div>
@@ -998,6 +1111,52 @@
                         </div>
                     </section>
                 </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL APERÇU DOCUMENT (ADMIN) -->
+    <div class="admin-modal-overlay hidden" id="adminDocModal" onclick="closeDocPreviewModal(event)">
+        <div class="admin-modal-card" onclick="event.stopPropagation()">
+            <div class="admin-modal-header">
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                    <div class="stat-icon-box gold" style="width:36px; height:36px; min-width:36px;"><i data-lucide="file-text"></i></div>
+                    <div>
+                        <h3 class="admin-modal-title" id="modalDocTitle">Titre du document</h3>
+                        <div class="admin-modal-subtitle" id="modalDocCategory">Catégorie</div>
+                    </div>
+                </div>
+                <button class="btn-close-admin" onclick="closeDocPreviewModal()"><i data-lucide="x"></i></button>
+            </div>
+            <div class="admin-modal-body">
+                <div class="doc-meta-grid">
+                    <div class="doc-meta-item">
+                        <span class="meta-label">Nom de fichier :</span>
+                        <span class="meta-value" id="modalDocFilename">-</span>
+                    </div>
+                    <div class="doc-meta-item">
+                        <span class="meta-label">Segments RAG (Chunks) :</span>
+                        <span class="meta-value text-gold" id="modalDocChunks">-</span>
+                    </div>
+                    <div class="doc-meta-item">
+                        <span class="meta-label">Emplacement du corpus :</span>
+                        <span class="meta-value" id="modalDocPath" style="font-family:monospace; font-size:0.8rem;">-</span>
+                    </div>
+                    <div class="doc-meta-item">
+                        <span class="meta-label">Statut d'indexation :</span>
+                        <span class="meta-value" style="color:#34d399; font-weight:600;">● Indexé & Prêt pour Recherche IA</span>
+                    </div>
+                </div>
+
+                <div style="margin-top:1.25rem;">
+                    <label class="admin-label"><i data-lucide="align-left" class="mini-icon"></i> Aperçu du premier extrait indexé :</label>
+                    <div class="doc-preview-text" id="modalDocPreview">
+                        <!-- Preview text inserted dynamically -->
+                    </div>
+                </div>
+            </div>
+            <div class="admin-modal-footer">
+                <button class="admin-btn-secondary" onclick="closeDocPreviewModal()">Fermer</button>
             </div>
         </div>
     </div>

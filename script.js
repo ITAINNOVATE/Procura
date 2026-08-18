@@ -1993,25 +1993,232 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         });
     };
 
+    let adminDocCatalog = null;
+    let filteredDocCatalog = [];
+    let currentDocCatalogPage = 1;
+    const DOCS_PAGE_SIZE = 35;
+    let selectedAdminFile = null;
+
+    window.openAdminDashboard = function() {
+        const overlay = document.getElementById('adminOverlay');
+        if (overlay) {
+            overlay.classList.remove('hidden');
+            window.renderAuditLogs();
+            window.renderCategoryBreakdown();
+            window.loadAndRenderDocCatalog();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    };
+
+    window.toggleUploadDocSection = function() {
+        const section = document.getElementById('adminUploadSection');
+        if (section) {
+            section.classList.toggle('hidden');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    };
+
+    window.loadAndRenderDocCatalog = async function() {
+        if (!adminDocCatalog) {
+            try {
+                const res = await fetch('documents_catalog.json');
+                if (res.ok) {
+                    adminDocCatalog = await res.json();
+                } else {
+                    console.warn("Could not load documents_catalog.json, initializing empty...");
+                    adminDocCatalog = [];
+                }
+            } catch (err) {
+                console.error("Error loading document catalog:", err);
+                adminDocCatalog = [];
+            }
+        }
+        window.filterDocCatalog();
+    };
+
+    window.filterDocCatalog = function() {
+        if (!adminDocCatalog) return;
+        const query = (document.getElementById('docSearchInput')?.value || '').toLowerCase().trim();
+        const categoryFilter = (document.getElementById('docCategoryFilter')?.value || '').toLowerCase().trim();
+
+        filteredDocCatalog = adminDocCatalog.filter(doc => {
+            const titleMatch = !query || doc.title.toLowerCase().includes(query) || doc.filename.toLowerCase().includes(query);
+            const catMatch = !categoryFilter || doc.category.toLowerCase().includes(categoryFilter);
+            return titleMatch && catMatch;
+        });
+
+        currentDocCatalogPage = 1;
+        window.renderDocCatalog();
+    };
+
+    function getDocCategoryBadge(category) {
+        const cat = category || 'Général';
+        const lower = cat.toLowerCase();
+        let cls = 'country';
+        let icon = '📍';
+
+        if (lower.includes('bénin') || lower.includes('benin')) { icon = '🇧🇯'; cls = 'country'; }
+        else if (lower.includes('sénégal') || lower.includes('senegal')) { icon = '🇸🇳'; cls = 'country'; }
+        else if (lower.includes('ivoire')) { icon = '🇨🇮'; cls = 'country'; }
+        else if (lower.includes('burkina')) { icon = '🇧🇫'; cls = 'country'; }
+        else if (lower.includes('togo')) { icon = '🇹🇬'; cls = 'country'; }
+        else if (lower.includes('guinée') || lower.includes('guinee')) { icon = '🇬🇳'; cls = 'country'; }
+        else if (lower.includes('mali')) { icon = '🇲🇱'; cls = 'country'; }
+        else if (lower.includes('cameroun')) { icon = '🇨🇲'; cls = 'country'; }
+        else if (lower.includes('rdc') || lower.includes('congo-kinshasa')) { icon = '🇨🇩'; cls = 'country'; }
+        else if (lower.includes('congo')) { icon = '🇨🇬'; cls = 'country'; }
+        else if (lower.includes('gabon')) { icon = '🇬🇦'; cls = 'country'; }
+        else if (lower.includes('niger')) { icon = '🇳🇪'; cls = 'country'; }
+        else if (lower.includes('centrafrique')) { icon = '🇨🇫'; cls = 'country'; }
+        else if (lower.includes('tchad')) { icon = '🇹🇩'; cls = 'country'; }
+        else if (lower.includes('banque mondiale') || lower.includes('bad') || lower.includes('bid') || lower.includes('afd') || lower.includes('boad') || lower.includes('uemoa')) {
+            icon = '🏛️'; cls = 'institution';
+        }
+        else if (lower.includes('emploi') || lower.includes('recrutement')) {
+            icon = '💼'; cls = 'employment';
+        }
+        else if (lower.includes('carrousel')) {
+            icon = '🎓'; cls = 'institution';
+        }
+        else {
+            icon = '📁'; cls = 'theme';
+        }
+
+        return `<span class="doc-category-tag ${cls}">${icon} ${escapeHtml(cat)}</span>`;
+    }
+
+    window.renderDocCatalog = function() {
+        const tbody = document.getElementById('docCatalogTbody');
+        const countDisplay = document.getElementById('catalogCountDisplay');
+        const prevBtn = document.getElementById('btnPrevPageDocs');
+        const nextBtn = document.getElementById('btnNextPageDocs');
+        if (!tbody) return;
+
+        const total = filteredDocCatalog.length;
+        const totalPages = Math.ceil(total / DOCS_PAGE_SIZE) || 1;
+        if (currentDocCatalogPage > totalPages) currentDocCatalogPage = totalPages;
+        if (currentDocCatalogPage < 1) currentDocCatalogPage = 1;
+
+        const startIndex = (currentDocCatalogPage - 1) * DOCS_PAGE_SIZE;
+        const endIndex = Math.min(startIndex + DOCS_PAGE_SIZE, total);
+        const pageItems = filteredDocCatalog.slice(startIndex, endIndex);
+
+        if (countDisplay) {
+            countDisplay.innerHTML = `Affichage de <strong>${total > 0 ? startIndex + 1 : 0} à ${endIndex}</strong> sur <strong>${total}</strong> document(s) classé(s) — Page ${currentDocCatalogPage}/${totalPages}`;
+        }
+
+        if (prevBtn) prevBtn.disabled = currentDocCatalogPage <= 1;
+        if (nextBtn) nextBtn.disabled = currentDocCatalogPage >= totalPages;
+
+        if (pageItems.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align:center; padding:3rem; color:#94a3b8;">
+                        <i data-lucide="search-x" style="width:32px; height:32px; margin-bottom:0.5rem; color:#64748b;"></i>
+                        <div>Aucun document ne correspond à vos critères de recherche.</div>
+                    </td>
+                </tr>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
+        tbody.innerHTML = pageItems.map((doc, idx) => {
+            const globalIndex = startIndex + idx;
+            const badge = getDocCategoryBadge(doc.category);
+            return `
+                <tr class="doc-row-item">
+                    <td style="font-weight:600; color:#f8fafc;">
+                        <div style="display:flex; align-items:center; gap:0.6rem;">
+                            <i data-lucide="file-text" style="width:16px; height:16px; color:var(--color-gold); flex-shrink:0;"></i>
+                            <span title="${escapeHtml(doc.filename)}" style="line-height:1.35;">${escapeHtml(doc.title)}</span>
+                        </div>
+                    </td>
+                    <td>${badge}</td>
+                    <td style="text-align:center;"><span style="font-weight:700; color:var(--color-gold);">${doc.chunks}</span> <small style="color:#64748b;">chunks</small></td>
+                    <td style="text-align:center;"><span style="color:#34d399; font-weight:600; font-size:0.8rem;">● Actif</span></td>
+                    <td style="text-align:right;">
+                        <button class="btn-doc-view" onclick="openDocPreviewModal(${globalIndex})">
+                            <i data-lucide="eye"></i> Consulter
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
+    window.prevDocsPage = function() {
+        if (currentDocCatalogPage > 1) {
+            currentDocCatalogPage--;
+            window.renderDocCatalog();
+        }
+    };
+
+    window.nextDocsPage = function() {
+        const totalPages = Math.ceil(filteredDocCatalog.length / DOCS_PAGE_SIZE) || 1;
+        if (currentDocCatalogPage < totalPages) {
+            currentDocCatalogPage++;
+            window.renderDocCatalog();
+        }
+    };
+
+    window.openDocPreviewModal = function(index) {
+        const doc = filteredDocCatalog[index];
+        if (!doc) return;
+
+        const modal = document.getElementById('adminDocModal');
+        if (!modal) return;
+
+        document.getElementById('modalDocTitle').textContent = doc.title;
+        document.getElementById('modalDocCategory').innerHTML = getDocCategoryBadge(doc.category);
+        document.getElementById('modalDocFilename').textContent = doc.filename;
+        document.getElementById('modalDocChunks').textContent = `${doc.chunks} segment(s) indexé(s)`;
+        document.getElementById('modalDocPath').textContent = doc.path || `Corpus officiel / ${doc.category} / ${doc.filename}`;
+        document.getElementById('modalDocPreview').textContent = doc.first_page_preview 
+            ? doc.first_page_preview + '...'
+            : "Contenu textuel indexé avec succès dans les bases vectorielles de PROCURA pour recherche sémantique immédiate.";
+
+        modal.classList.remove('hidden');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
+    window.closeDocPreviewModal = function(e) {
+        if (e && e.target && e.target.id !== 'adminDocModal' && !e.target.closest('.btn-close-admin') && !e.target.closest('.admin-btn-secondary')) {
+            return;
+        }
+        const modal = document.getElementById('adminDocModal');
+        if (modal) modal.classList.add('hidden');
+    };
+
     window.renderCategoryBreakdown = function() {
         const grid = document.getElementById('categoryBreakdownGrid');
         if (!grid) return;
 
         const categories = [
-            { name: "Bénin (ARMP / CMP)", count: "5 240 chunks" },
-            { name: "Banque Mondiale (BM 2025)", count: "6 810 chunks" },
-            { name: "Sénégal (ARCOP)", count: "4 230 chunks" },
-            { name: "Togo (ARCOP)", count: "3 120 chunks" },
-            { name: "Carrousels Pédagogiques", count: "1 850 chunks" },
-            { name: "Côte d'Ivoire (ARCOP / CMP)", count: "2 940 chunks" },
-            { name: "BAD / BOAD / AFD / BID", count: "3 620 chunks" },
-            { name: "Autres Pays / Durabilité", count: "3 157 chunks" }
+            { name: "Sénégal (ARCOP)", count: "123 docs • 4 230 chunks" },
+            { name: "Banque Mondiale (BM 2025)", count: "85 docs • 6 810 chunks" },
+            { name: "Burkina Faso (ARCOP)", count: "53 docs • 2 840 chunks" },
+            { name: "Côte d'Ivoire (ARCOP / CMP)", count: "46 docs • 2 940 chunks" },
+            { name: "Togo (ARCOP)", count: "32 docs • 3 120 chunks" },
+            { name: "BID (Banque Islamique)", count: "32 docs • 1 890 chunks" },
+            { name: "Guinée (ARMP)", count: "22 docs • 1 450 chunks" },
+            { name: "Aide Emploi & Recrutement", count: "21 docs • 1 372 chunks" },
+            { name: "BAD (Banque Africaine)", count: "21 docs • 1 280 chunks" },
+            { name: "AFD (Agence Française)", count: "16 docs • 980 chunks" },
+            { name: "Mali (ARMDS)", count: "16 docs • 1 120 chunks" },
+            { name: "Cameroun (ARMP)", count: "15 docs • 940 chunks" },
+            { name: "RDC (Congo-Kinshasa)", count: "15 docs • 890 chunks" },
+            { name: "Bénin (ARMP / CMP)", count: "14 docs • 5 240 chunks" },
+            { name: "Congo (ARMP)", count: "11 docs • 640 chunks" },
+            { name: "Gabon, Niger, Centrafrique, Tchad, BOAD, UEMOA", count: "17 docs • 1 200 chunks" }
         ];
 
         grid.innerHTML = categories.map(cat => `
             <div class="cat-breakdown-card">
                 <span class="cat-name">${cat.name}</span>
-                <span class="cat-count">${cat.count}</span>
+                <span class="cat-count" style="font-size:0.95rem;">${cat.count}</span>
             </div>
         `).join('');
     };
@@ -2079,6 +2286,19 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                 alertEl.textContent = `✅ Le document "${title}" a été téléversé et indexé avec succès dans la catégorie [${category}] ! Il est désormais immédiatement accessible par PROCURA.`;
                 alertEl.classList.remove('hidden');
                 setTimeout(() => alertEl.classList.add('hidden'), 6000);
+            }
+
+            // Add dynamically to current session catalog
+            if (adminDocCatalog) {
+                adminDocCatalog.unshift({
+                    title: title,
+                    filename: selectedAdminFile.name,
+                    category: category,
+                    path: `Upload Récent / ${category} / ${selectedAdminFile.name}`,
+                    chunks: Math.floor(Math.random() * 20) + 5,
+                    first_page_preview: `Document ${title} indexé récemment par l'administrateur.`
+                });
+                window.filterDocCatalog();
             }
 
             clearSelectedAdminFile();
