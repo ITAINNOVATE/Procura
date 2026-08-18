@@ -1051,63 +1051,75 @@
                     <section class="admin-tab-content hidden" id="tabUsers">
                         <div class="tab-header-row">
                             <div>
-                                <h2 class="admin-section-title">Gestion des Utilisateurs & Abonnements</h2>
-                                <p class="admin-section-subtitle">Visualisez les comptes inscrits et l'état des souscriptions actives.</p>
+                                <h2 class="admin-section-title">Répertoire des Utilisateurs & Abonnements Actifs</h2>
+                                <p class="admin-section-subtitle">Visualisez en temps réel les comptes professionnels inscrits, leurs organismes et l'état de leurs souscriptions.</p>
                             </div>
+                            <button class="admin-btn-gold" onclick="loadAndRenderAdminUsers()">
+                                <i data-lucide="refresh-cw"></i> Actualiser les Abonnés
+                            </button>
                         </div>
 
+                        <!-- User & Subscription Stats Grid -->
                         <div class="admin-stats-grid">
                             <div class="admin-stat-card">
-                                <div class="stat-icon-box gold"><i data-lucide="user-check"></i></div>
+                                <div class="stat-icon-box gold"><i data-lucide="users"></i></div>
                                 <div class="stat-data">
-                                    <span class="stat-value" id="statTotalUsers">124</span>
-                                    <span class="stat-label">Utilisateurs inscrits</span>
+                                    <span class="stat-value" id="statTotalUsers">0</span>
+                                    <span class="stat-label">Comptes Inscrits</span>
                                 </div>
                             </div>
                             <div class="admin-stat-card">
                                 <div class="stat-icon-box green"><i data-lucide="credit-card"></i></div>
                                 <div class="stat-data">
-                                    <span class="stat-value">38</span>
+                                    <span class="stat-value" id="statActiveSubs">0</span>
                                     <span class="stat-label">Abonnements Actifs</span>
+                                </div>
+                            </div>
+                            <div class="admin-stat-card">
+                                <div class="stat-icon-box blue"><i data-lucide="award"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-value" id="statPremiumSubs">0</span>
+                                    <span class="stat-label">Plans Annuels & Mensuels</span>
                                 </div>
                             </div>
                         </div>
 
+                        <!-- Filters & Search Toolbar -->
+                        <div class="admin-toolbar margin-top">
+                            <div class="admin-search-wrapper" style="flex:2;">
+                                <i data-lucide="search" class="search-icon"></i>
+                                <input type="text" id="userSearchInput" placeholder="Rechercher par nom, email, organisme, pays ou fonction..." oninput="filterAdminUsers()">
+                            </div>
+                            <select id="userPlanFilter" onchange="filterAdminUsers()" class="admin-select" style="flex:1;">
+                                <option value="">Tous les types d'abonnements</option>
+                                <option value="admin">Administrateur (Illimité)</option>
+                                <option value="annuel">Plan Annuel (70 000 FCFA)</option>
+                                <option value="mensuel">Plan Mensuel (10 000 FCFA)</option>
+                                <option value="hebdo">Plan Hebdomadaire (3 000 FCFA)</option>
+                                <option value="journalier">Plan Journalier (1 000 FCFA)</option>
+                                <option value="free">Plan Gratuit (Découverte)</option>
+                            </select>
+                        </div>
+
+                        <!-- Users Table -->
                         <div class="admin-table-container">
-                            <table class="admin-table">
+                            <table class="admin-table" id="usersTable">
                                 <thead>
                                     <tr>
-                                        <th>Nom & Prénom</th>
-                                        <th>Email</th>
-                                        <th>Organisme / Fonction</th>
-                                        <th>Plan Actif</th>
-                                        <th>Statut</th>
+                                        <th style="width:25%;">Nom & Prénom</th>
+                                        <th style="width:23%;">Email</th>
+                                        <th style="width:24%;">Organisme / Pays / Fonction</th>
+                                        <th style="width:16%;">Type d'Abonnement</th>
+                                        <th style="width:12%; text-align:center;">Statut</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <tr>
-                                        <td><strong>Akibou BASSABI-MOUSSE</strong></td>
-                                        <td>support@bassentreprises.com</td>
-                                        <td>Bass Consulting / DG</td>
-                                        <td><span class="admin-badge gold">ADMINISTRATEUR</span></td>
-                                        <td><span class="admin-status active">Actif</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Jean-Baptiste K.</td>
-                                        <td>j.kouassi@armp.ci</td>
-                                        <td>Ministère des Infrastructures</td>
-                                        <td><span class="admin-badge blue">MENSUEL</span></td>
-                                        <td><span class="admin-status active">Actif</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Aïchatou M.</td>
-                                        <td>aichatou.m@boad.org</td>
-                                        <td>BOAD / Expert Marchés</td>
-                                        <td><span class="admin-badge blue">ANNUEL</span></td>
-                                        <td><span class="admin-status active">Actif</span></td>
-                                    </tr>
+                                <tbody id="usersTbody">
+                                    <!-- Injected dynamically via JS -->
                                 </tbody>
                             </table>
+                            <div id="usersCountDisplay" style="padding:0.85rem 1.25rem; background:#090d16; border-top:1px solid rgba(255,255,255,0.08); font-size:0.82rem; color:#94a3b8;">
+                                Chargement des utilisateurs...
+                            </div>
                         </div>
                     </section>
                 </main>
