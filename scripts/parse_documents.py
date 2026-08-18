@@ -1,12 +1,16 @@
 import os
+import sys
 import json
 import re
 import traceback
 from pypdf import PdfReader
 from docx import Document
 
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 # Configuration
-DOCS_DIRS = ["Marchés Publics docs", "Documents utiles"]  # Répertoires sources
+DOCS_DIRS = ["Documents utiles", "Marchés Publics docs"]  # Répertoires sources (Documents utiles en premier)
 OUTPUT_JSON = "knowledge_base.json"
 CHUNK_SIZE = 3000  # Target character size per chunk (optimized for loading speed)
 CHUNK_OVERLAP = 300  # Character overlap between chunks
@@ -85,6 +89,8 @@ def get_category(root_path):
             elif "UEMOA" in fn_upper:
                 return "UEMOA"
             # Thématiques et autres
+            elif "AIDE EMPLOI" in fn_upper or "EMPLOI" in fn_upper:
+                return "Aide Emploi et Recrutement"
             elif "THEMATIQUES" in fn_upper or "THÉMATIQUES" in fn_upper:
                 return "Thématiques"
             elif "CAROUSSELS" in fn_upper or "CAROUS" in fn_upper:
@@ -101,12 +107,15 @@ def extract_pdf_text(file_path):
     """Extract page-by-page text from a PDF."""
     pages = []
     try:
-        reader = PdfReader(file_path)
+        reader = PdfReader(file_path, strict=False)
         for i, page in enumerate(reader.pages):
-            text = page.extract_text()
-            cleaned = clean_text(text)
-            if cleaned:
-                pages.append((i + 1, cleaned))
+            try:
+                text = page.extract_text()
+                cleaned = clean_text(text)
+                if cleaned:
+                    pages.append((i + 1, cleaned))
+            except Exception:
+                continue
     except Exception as e:
         print(f"Error reading PDF {file_path}: {e}")
     return pages
@@ -153,12 +162,12 @@ def main():
             for file in files:
                 file_path = os.path.join(root, file)
                 ext = os.path.splitext(file)[1].lower()
-
-                # Skip temp office files
-                if file.startswith("~$") or file.startswith("._"):
-                    continue
-
                 file_upper = file.upper()
+
+                # Skip temp office files or known corrupted PDFs
+                if file.startswith("~$") or file.startswith("._") or "621624_N" in file_upper:
+                    print(f"Skipping corrupted or temporary file: {file}")
+                    continue
 
                 # Skip images, Excel, PowerPoint, legacy .doc (non textuel exploitable)
                 if ext in [".jpg", ".jpeg", ".png", ".gif", ".xls", ".xlsx", ".ppt", ".pptx", ".doc"]:
@@ -189,27 +198,26 @@ def main():
                     print(f"Skipping template/plan file: {file}")
                     continue
 
-                # Skip Catalogue and English documents
-                if "CATALOGUE" in file_upper:
+                # Skip Catalogue (except Aide Emploi) and English documents
+                if "CATALOGUE" in file_upper and "EMPLOI" not in category.upper():
                     print(f"Skipping Catalogue: {file}")
                     continue
                 if any(x in file_upper for x in ["ENG", "ENGLISH", "_EN.", "-EN."]):
                     print(f"Skipping English file: {file}")
                     continue
 
-                # Deduplicate files by name or size
+                # Deduplicate files by name
                 try:
                     file_size = os.path.getsize(file_path)
                 except (OSError, FileNotFoundError) as e:
                     print(f"Skipping (path too long or inaccessible): {file_path[:80]}... ({e})")
                     continue
 
-                if file in processed_files or file_size in processed_sizes:
-                    print(f"Skipping duplicate file: {file} ({file_size} bytes)")
+                if file in processed_files:
+                    print(f"Skipping duplicate file: {file}")
                     continue
 
                 processed_files.add(file)
-                processed_sizes.add(file_size)
 
                 print(f"Parsing {file_path} [{category}]...")
 

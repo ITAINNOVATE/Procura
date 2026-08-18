@@ -219,6 +219,17 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6
             }
         }
 
+        // Boost pour l'intention Aide Emploi, CV et Recrutement
+        const employmentTerms = ['emploi', 'recrutement', 'cv', 'entretien', 'lettre', 'motivation', 'embauche', 'salaries', 'contrat', 'travail', 'recruteur', 'poste', 'linkedin', 'rqth'];
+        const isEmploymentQuery = rawQueryWords.some(w => employmentTerms.includes(w));
+
+        if (item.categoryRaw.includes('emploi') || item.categoryRaw.includes('recrutement') || item.titleRawLower.includes('cv') || item.titleRawLower.includes('entretien')) {
+            score += 40;
+            if (isEmploymentQuery) {
+                score += 180;
+            }
+        }
+
         // Pénalité de croisement de pays
         const countries = ["benin", "niger", "congo", "cameroun", "centrafique", "centrafrique", "ivoire", "rci", "togo", "mali", "tchad", "burkina", "senegal", "gabon", "guinee", "rdc", "uemoa"];
         const queryHasCountry = queryWords.some(w => countries.includes(w));
