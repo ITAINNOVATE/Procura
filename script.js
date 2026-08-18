@@ -613,6 +613,18 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     let selectedPlan    = null;
     let selectedProfile = null;
 
+    window.openLoginModal = function() {
+        window.goToStep('stepForm');
+    };
+
+    window.openSignUpModal = function() {
+        window.goToStep('stepSignUp');
+    };
+
+    window.openPlansModal = function() {
+        window.goToStep('stepPlans');
+    };
+
     window.goToStep = function(stepId) {
         // Hide all cards
         const allSteps = ['stepPlans', 'stepProfile', 'stepForm', 'stepSignUp', 'stepPayment'];
@@ -624,6 +636,17 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         // Show requested step
         const target = document.getElementById(stepId);
         if (target) target.classList.remove('hidden');
+
+        // Make sure overlay is visible
+        const modal = document.getElementById('paywallModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.scrollTo({ top: 0, behavior: 'instant' });
+        }
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
     };
 
     // Exposed globally for onclick handlers in HTML
