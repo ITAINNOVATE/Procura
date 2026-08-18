@@ -370,6 +370,16 @@
 
             <!-- ══ STEP 2 : Sélection du profil ══ -->
             <div class="paywall-card reg-step hidden" id="stepProfile">
+                <div class="modal-card-top-bar">
+                    <button type="button" class="modal-card-back-btn" onclick="goToStep('stepPlans')" title="Retour">
+                        <i data-lucide="arrow-left"></i>
+                        <span>Retour aux tarifs</span>
+                    </button>
+                    <button type="button" class="modal-card-close-btn" onclick="closeAuthModal()" title="Fermer">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
                 <div class="reg-logo">
                     <span class="reg-logo-text">PROCURA<span class="reg-logo-ai">AI</span></span>
                 </div>
@@ -400,6 +410,16 @@
 
             <!-- ══ STEP 3 : Connexion (Login) ══ -->
             <div class="paywall-card reg-step hidden" id="stepForm">
+                <div class="modal-card-top-bar">
+                    <button type="button" class="modal-card-back-btn" onclick="handleAuthBack()" title="Retour">
+                        <i data-lucide="arrow-left"></i>
+                        <span>Retour</span>
+                    </button>
+                    <button type="button" class="modal-card-close-btn" onclick="closeAuthModal()" title="Fermer">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
                 <div class="reg-logo">
                     <img src="assets/logo_procura_sans_fond.png" alt="PROCURA" class="reg-logo-img">
                 </div>
@@ -439,6 +459,16 @@
 
             <!-- ══ STEP 4 : Inscription (Sign Up) ══ -->
             <div class="paywall-card reg-step hidden" id="stepSignUp">
+                <div class="modal-card-top-bar">
+                    <button type="button" class="modal-card-back-btn" onclick="handleAuthBack()" title="Retour">
+                        <i data-lucide="arrow-left"></i>
+                        <span>Retour</span>
+                    </button>
+                    <button type="button" class="modal-card-close-btn" onclick="closeAuthModal()" title="Fermer">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
                 <div class="reg-logo">
                     <img src="assets/logo_procura_sans_fond.png" alt="PROCURA" class="reg-logo-img">
                 </div>
@@ -646,6 +676,16 @@
 
             <!-- ══ STEP 5 : Paiement (Payment) ══ -->
             <div class="paywall-card reg-step hidden" id="stepPayment">
+                <div class="modal-card-top-bar">
+                    <button type="button" class="modal-card-back-btn" onclick="goToStep('stepPlans')" title="Changer de plan">
+                        <i data-lucide="arrow-left"></i>
+                        <span>Changer de plan</span>
+                    </button>
+                    <button type="button" class="modal-card-close-btn" onclick="closeAuthModal()" title="Fermer">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
                 <div class="reg-logo">
                     <img src="assets/logo_procura_sans_fond.png" alt="PROCURA" class="reg-logo-img">
                 </div>

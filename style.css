@@ -929,6 +929,68 @@ textarea::placeholder {
     height: 20px;
 }
 
+/* ── Modal Card Top Navigation (Back & Close) ────────────────────────── */
+.modal-card-top-bar {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.25rem;
+}
+
+.modal-card-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: #f8fafc;
+    color: var(--color-navy);
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    padding: 0.45rem 1rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.modal-card-back-btn:hover {
+    background: var(--color-navy);
+    color: white;
+    border-color: var(--color-navy);
+    transform: translateX(-2px);
+}
+
+.modal-card-back-btn i {
+    width: 16px;
+    height: 16px;
+}
+
+.modal-card-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: #f8fafc;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.modal-card-close-btn:hover {
+    background: #ef4444;
+    color: white;
+    border-color: #ef4444;
+}
+
+.modal-card-close-btn i {
+    width: 18px;
+    height: 18px;
+}
+
 /* ── Bouton retour en haut (modale tarifs) ─────────────────────────────── */
 .paywall-back-top {
     position: fixed;

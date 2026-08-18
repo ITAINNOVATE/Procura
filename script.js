@@ -625,6 +625,19 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         window.goToStep('stepPlans');
     };
 
+    window.closeAuthModal = function() {
+        const modal = document.getElementById('paywallModal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.handleAuthBack = function() {
+        if (selectedPlan && selectedPlan !== 'free') {
+            window.goToStep('stepPlans');
+        } else {
+            window.closeAuthModal();
+        }
+    };
+
     window.goToStep = function(stepId) {
         // Hide all cards
         const allSteps = ['stepPlans', 'stepProfile', 'stepForm', 'stepSignUp', 'stepPayment'];
