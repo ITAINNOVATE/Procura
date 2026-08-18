@@ -1855,6 +1855,8 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             overlay.classList.remove('hidden');
             window.renderAuditLogs();
             window.renderCategoryBreakdown();
+            window.loadAndRenderDocCatalog();
+            window.loadAndRenderAdminUsers();
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
     };
@@ -2027,18 +2029,6 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     let filteredDocCatalog = [];
     let currentDocCatalogPage = 1;
     const DOCS_PAGE_SIZE = 35;
-    let selectedAdminFile = null;
-
-    window.openAdminDashboard = function() {
-        const overlay = document.getElementById('adminOverlay');
-        if (overlay) {
-            overlay.classList.remove('hidden');
-            window.renderAuditLogs();
-            window.renderCategoryBreakdown();
-            window.loadAndRenderDocCatalog();
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-        }
-    };
 
     window.toggleUploadDocSection = function() {
         const section = document.getElementById('adminUploadSection');
