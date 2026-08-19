@@ -210,12 +210,33 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6
 
         // Boost pour l'intention conceptuelle / comparaison / carrousels pédagogiques
         const definitionTerms = ['difference', 'differentes', 'comparaison', 'distinction', 'versus', 'entre', 'explication', 'signifie', 'definition', 'definir', 'erreur', 'erreurs', 'risques'];
-        const isDefinitionQuery = rawQueryWords.some(w => definitionTerms.includes(w)) || queryWords.includes('quoi') || queryWords.includes('comment');
+        const isDefinitionQuery = rawQueryWords.some(w => definitionTerms.includes(w)) || rawQueryWords.includes('quoi') || rawQueryWords.includes('comment') || rawQueryWords.includes('cest');
 
-        if (item.categoryRaw.includes('carrousel') || item.titleRawLower.includes('carrousel') || item.titleRawLower.includes('difference') || item.titleRawLower.includes('erreurs')) {
-            score += 50;
-            if (isDefinitionQuery) {
-                score += 120;
+        const isCarrouselChunk = item.categoryRaw.includes('carrousel') || item.titleRawLower.includes('carrousel');
+        const isOffTopicCarrousel = isCarrouselChunk && (
+            item.titleRawLower.includes('cv') ||
+            item.titleRawLower.includes('emploi') ||
+            item.titleRawLower.includes('recrutement') ||
+            item.titleRawLower.includes('entretien') ||
+            item.titleRawLower.includes('lettre') ||
+            item.titleRawLower.includes('linkedin') ||
+            item.categoryRaw.includes('emploi') ||
+            item.categoryRaw.includes('aide emploi')
+        );
+
+        if (isCarrouselChunk || item.titleRawLower.includes('difference') || item.titleRawLower.includes('erreurs')) {
+            // Vérifier que le carrousel est réellement pertinent pour la question
+            const carrouselRelevant = queryWords.some(w =>
+                item.titleRawLower.includes(w) || item.contentRawLower.includes(w)
+            );
+            if (carrouselRelevant) {
+                score += 50;
+                if (isDefinitionQuery) {
+                    score += 120;
+                }
+            } else if (isOffTopicCarrousel) {
+                // Pénaliser les carrousels hors-sujet (CV, emploi) si la question n'est pas sur l'emploi
+                score -= 100;
             }
         }
 
@@ -224,9 +245,11 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6
         const isEmploymentQuery = rawQueryWords.some(w => employmentTerms.includes(w));
 
         if (item.categoryRaw.includes('emploi') || item.categoryRaw.includes('recrutement') || item.titleRawLower.includes('cv') || item.titleRawLower.includes('entretien')) {
-            score += 40;
             if (isEmploymentQuery) {
                 score += 180;
+            } else {
+                // Pénaliser fortement les documents emploi/CV pour les questions non-emploi
+                score -= 80;
             }
         }
 
