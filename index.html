@@ -1213,7 +1213,100 @@
         </div>
     </div>
 
+    <!-- MODAL EDITION DOCUMENT (ADMIN) -->
+    <div class="admin-modal-overlay hidden" id="adminEditDocModal" onclick="closeEditDocModal(event)">
+        <div class="admin-modal-card" onclick="event.stopPropagation()" style="max-width:560px;">
+            <div class="admin-modal-header">
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                    <div class="stat-icon-box blue" style="width:36px; height:36px; min-width:36px;"><i data-lucide="file-edit"></i></div>
+                    <div>
+                        <h3 class="admin-modal-title">Modifier le Document</h3>
+                        <div class="admin-modal-subtitle">Mettez à jour le titre ou la catégorie du document</div>
+                    </div>
+                </div>
+                <button class="btn-close-admin" onclick="closeEditDocModal()"><i data-lucide="x"></i></button>
+            </div>
+            <div class="admin-modal-body">
+                <input type="hidden" id="editDocId">
+                <input type="hidden" id="editDocIndex">
+                <div class="form-group" style="margin-bottom:1rem;">
+                    <label class="admin-label">Titre Officiel du Document <span class="req">*</span></label>
+                    <input type="text" id="editDocTitle" class="admin-input-text" placeholder="Titre officiel...">
+                </div>
+                <div class="form-group">
+                    <label class="admin-label">Catégorie / Pays / Institution <span class="req">*</span></label>
+                    <select id="editDocCategory" class="admin-input-select">
+                        <option value="Bénin">Bénin (ARMP / CMP)</option>
+                        <option value="Sénégal">Sénégal (ARCOP)</option>
+                        <option value="Côte d'Ivoire">Côte d'Ivoire (ARCOP / CMP)</option>
+                        <option value="Burkina Faso">Burkina Faso (ARCOP)</option>
+                        <option value="Togo">Togo (ARCOP)</option>
+                        <option value="Guinée">Guinée (ARMP)</option>
+                        <option value="Mali">Mali (ARMDS)</option>
+                        <option value="Cameroun">Cameroun (ARMP)</option>
+                        <option value="RDC (Congo-Kinshasa)">RDC (ARMP)</option>
+                        <option value="Congo">Congo (ARMP)</option>
+                        <option value="Gabon">Gabon (ARCOP)</option>
+                        <option value="Niger">Niger (ARCOP)</option>
+                        <option value="Centrafrique">Centrafrique (ARMP)</option>
+                        <option value="Tchad">Tchad (ARMP)</option>
+                        <option value="Banque Mondiale">Banque Mondiale (BM)</option>
+                        <option value="BAD (Banque Africaine de Développement)">BAD</option>
+                        <option value="BID (Banque Islamique de Développement)">BID / IsDB</option>
+                        <option value="AFD (Agence Française de Développement)">AFD</option>
+                        <option value="BOAD (Banque Ouest-Africaine de Développement)">BOAD</option>
+                        <option value="UEMOA">UEMOA</option>
+                        <option value="Aide Emploi et Recrutement">Aide Emploi et Recrutement</option>
+                        <option value="Carrousels Pédagogiques">Carrousels Pédagogiques</option>
+                        <option value="Audit et Contrôle des Finances Publiques">Audit &amp; Contrôle</option>
+                        <option value="Marchés Durables">Marchés Durables</option>
+                        <option value="Général">Général</option>
+                        <option value="Autres Documents">Autres Documents</option>
+                    </select>
+                </div>
+                <div class="admin-alert success hidden" id="editDocSuccess">Modification enregistrée avec succès.</div>
+                <div class="admin-alert hidden" id="editDocError" style="background:rgba(239,68,68,0.12); color:#f87171; border-color:#f87171;"></div>
+            </div>
+            <div class="admin-modal-footer" style="display:flex; gap:0.75rem; justify-content:flex-end;">
+                <button class="admin-btn-secondary" onclick="closeEditDocModal()">Annuler</button>
+                <button class="admin-btn-gold" id="btnSaveDocEdit" onclick="saveDocEdit()">
+                    <i data-lucide="save"></i> Sauvegarder
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIRMATION SUPPRESSION (ADMIN) -->
+    <div class="admin-modal-overlay hidden" id="adminDeleteDocModal" onclick="closeDeleteDocModal(event)">
+        <div class="admin-modal-card" onclick="event.stopPropagation()" style="max-width:460px;">
+            <div class="admin-modal-header">
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                    <div class="stat-icon-box" style="width:36px; height:36px; min-width:36px; background:rgba(239,68,68,0.15);"><i data-lucide="trash-2" style="color:#f87171;"></i></div>
+                    <div>
+                        <h3 class="admin-modal-title" style="color:#f87171;">Confirmer la Suppression</h3>
+                        <div class="admin-modal-subtitle">Cette action est irréversible</div>
+                    </div>
+                </div>
+                <button class="btn-close-admin" onclick="closeDeleteDocModal()"><i data-lucide="x"></i></button>
+            </div>
+            <div class="admin-modal-body">
+                <input type="hidden" id="deleteDocId">
+                <input type="hidden" id="deleteDocIndex">
+                <p style="color:#cbd5e1; line-height:1.6;">Êtes-vous sûr de vouloir supprimer définitivement le document :</p>
+                <p id="deleteDocName" style="color:#f8fafc; font-weight:700; margin:0.75rem 0; padding:0.75rem; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.25); border-radius:8px;"></p>
+                <p style="color:#94a3b8; font-size:0.85rem;">Ce document sera retiré du catalogue de façon permanente. L'indexation RAG ne sera mise à jour qu'après re-déploiement.</p>
+                <div class="admin-alert hidden" id="deleteDocError" style="background:rgba(239,68,68,0.12); color:#f87171; border-color:#f87171;"></div>
+            </div>
+            <div class="admin-modal-footer" style="display:flex; gap:0.75rem; justify-content:flex-end;">
+                <button class="admin-btn-secondary" onclick="closeDeleteDocModal()">Annuler</button>
+                <button class="admin-btn-gold" id="btnConfirmDelete" onclick="confirmDeleteDoc()" style="background:linear-gradient(135deg,#ef4444,#dc2626); box-shadow:none;">
+                    <i data-lucide="trash-2"></i> Supprimer définitivement
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="/api/app-config.js"></script>
-    <script src="script.js?v=20260804_v27"></script>
+    <script src="script.js?v=20260824_v28"></script>
 </body>
 </html>

@@ -2038,10 +2038,27 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         });
     };
 
-    let adminDocCatalog = null;
+    let adminDocCatalog = null;       // tableau actif (Supabase ou JSON)
     let filteredDocCatalog = [];
     let currentDocCatalogPage = 1;
     const DOCS_PAGE_SIZE = 35;
+    const PROCURA_SUPABASE_URL = 'https://yhutkoevddnydlvoqeqj.supabase.co';
+    const PROCURA_ANON_KEY = 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
+    let docSourceIsSupabase = false;  // true si on lit depuis Supabase
+
+    // ── Helpers REST Supabase direct (contourne le proxy Vercel pour les appels admin) ──
+    async function sbDocFetch(method, urlSuffix, body) {
+        const headers = {
+            'apikey': PROCURA_ANON_KEY,
+            'Authorization': 'Bearer ' + PROCURA_ANON_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': method === 'POST' ? 'return=representation' : 'return=minimal'
+        };
+        const opts = { method, headers };
+        if (body !== undefined) opts.body = JSON.stringify(body);
+        const res = await fetch(PROCURA_SUPABASE_URL + '/rest/v1/' + urlSuffix, opts);
+        return res;
+    }
 
     window.toggleUploadDocSection = function() {
         const section = document.getElementById('adminUploadSection');
@@ -2051,23 +2068,106 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         }
     };
 
+    // ── Chargement du catalogue (Supabase en priorité, fallback JSON) ──
     window.loadAndRenderDocCatalog = async function() {
-        if (!adminDocCatalog) {
-            try {
-                const res = await fetch('documents_catalog.json');
-                if (res.ok) {
-                    adminDocCatalog = await res.json();
-                } else {
-                    console.warn("Could not load documents_catalog.json, initializing empty...");
-                    adminDocCatalog = [];
+        if (adminDocCatalog !== null) {
+            // Déjà chargé — on re-filtre et re-rend
+            window.filterDocCatalog();
+            return;
+        }
+
+        const countDisplay = document.getElementById('catalogCountDisplay');
+        if (countDisplay) countDisplay.innerHTML = 'Chargement du catalogue...';
+
+        // 1. Tenter Supabase
+        try {
+            const res = await sbDocFetch('GET', 'procura_documents?select=*&is_active=eq.true&order=created_at.desc&limit=5000');
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    // Supabase a des données — on les utilise
+                    adminDocCatalog = data.map(d => ({
+                        id: d.id,
+                        title: d.title,
+                        filename: d.filename,
+                        category: d.category,
+                        path: d.path || '',
+                        chunks: d.chunks || 0,
+                        storage_url: d.storage_url || '',
+                        first_page_preview: d.first_page_preview || ''
+                    }));
+                    docSourceIsSupabase = true;
+                    console.log(`[Admin] Catalogue chargé depuis Supabase (${adminDocCatalog.length} docs)`);
+                    // Mettre à jour le compteur dans le filtre
+                    const opt0 = document.querySelector('#docCategoryFilter option[value=""]');
+                    if (opt0) opt0.textContent = `Tous les répertoires (${adminDocCatalog.length} documents)`;
+                    document.getElementById('statCatalogDocs').textContent = adminDocCatalog.length;
+                    window.filterDocCatalog();
+                    return;
+                } else if (Array.isArray(data) && data.length === 0) {
+                    // Table vide → seeder depuis JSON
+                    console.log('[Admin] Table Supabase vide → Amorçage depuis documents_catalog.json...');
+                    await seedDocCatalogToSupabase();
+                    return;
                 }
-            } catch (err) {
-                console.error("Error loading document catalog:", err);
+            } else {
+                console.warn('[Admin] Supabase procura_documents inaccessible (table inexistante ?), fallback JSON.');
+            }
+        } catch (err) {
+            console.warn('[Admin] Erreur Supabase, fallback JSON:', err);
+        }
+
+        // 2. Fallback JSON
+        try {
+            const res = await fetch('documents_catalog.json');
+            if (res.ok) {
+                adminDocCatalog = await res.json();
+                docSourceIsSupabase = false;
+                console.log(`[Admin] Catalogue chargé depuis JSON (${adminDocCatalog.length} docs)`);
+            } else {
                 adminDocCatalog = [];
             }
+        } catch (err) {
+            console.error('[Admin] Erreur chargement JSON:', err);
+            adminDocCatalog = [];
         }
         window.filterDocCatalog();
     };
+
+    // ── Amorçage initial : insère les 673 docs JSON dans Supabase par lots ──
+    async function seedDocCatalogToSupabase() {
+        const countDisplay = document.getElementById('catalogCountDisplay');
+        if (countDisplay) countDisplay.innerHTML = 'Amorçage de la base Supabase en cours... (1ère utilisation)';
+        try {
+            const res = await fetch('documents_catalog.json');
+            if (!res.ok) throw new Error('JSON introuvable');
+            const jsonDocs = await res.json();
+
+            const BATCH = 100;
+            let inserted = 0;
+            for (let i = 0; i < jsonDocs.length; i += BATCH) {
+                const batch = jsonDocs.slice(i, i + BATCH).map(d => ({
+                    title: d.title || d.filename || 'Document sans titre',
+                    filename: d.filename || '',
+                    category: d.category || 'Général',
+                    path: d.path || '',
+                    chunks: d.chunks || 0,
+                    storage_url: '',
+                    first_page_preview: d.first_page_preview || ''
+                }));
+                const r = await sbDocFetch('POST', 'procura_documents', batch);
+                if (r.ok) inserted += batch.length;
+                else console.warn('[Seed] Lot ' + i + ' échoué:', await r.text());
+                if (countDisplay) countDisplay.innerHTML = `Amorçage en cours... ${Math.min(i + BATCH, jsonDocs.length)}/${jsonDocs.length} docs`;
+            }
+            console.log(`[Admin] Amorçage terminé : ${inserted} docs insérés dans Supabase`);
+        } catch (err) {
+            console.error('[Admin] Échec amorçage:', err);
+        }
+        // Recharger depuis Supabase après le seed
+        adminDocCatalog = null;
+        await window.loadAndRenderDocCatalog();
+    }
 
     window.filterDocCatalog = function() {
         if (!adminDocCatalog) return;
@@ -2082,6 +2182,390 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
 
         currentDocCatalogPage = 1;
         window.renderDocCatalog();
+    };
+
+    window.renderDocCatalog = function() {
+        const tbody = document.getElementById('docCatalogTbody');
+        const countDisplay = document.getElementById('catalogCountDisplay');
+        const prevBtn = document.getElementById('btnPrevPageDocs');
+        const nextBtn = document.getElementById('btnNextPageDocs');
+        if (!tbody) return;
+
+        const total = filteredDocCatalog.length;
+        const totalPages = Math.ceil(total / DOCS_PAGE_SIZE) || 1;
+        if (currentDocCatalogPage > totalPages) currentDocCatalogPage = totalPages;
+        if (currentDocCatalogPage < 1) currentDocCatalogPage = 1;
+
+        const startIndex = (currentDocCatalogPage - 1) * DOCS_PAGE_SIZE;
+        const endIndex = Math.min(startIndex + DOCS_PAGE_SIZE, total);
+        const pageItems = filteredDocCatalog.slice(startIndex, endIndex);
+
+        if (countDisplay) {
+            const sourceLabel = docSourceIsSupabase
+                ? '<span style="color:#34d399; font-size:0.75rem; margin-left:0.5rem;">● Live Supabase</span>'
+                : '<span style="color:#94a3b8; font-size:0.75rem; margin-left:0.5rem;">● Cache JSON</span>';
+            countDisplay.innerHTML = `Affichage de <strong>${total > 0 ? startIndex + 1 : 0} à ${endIndex}</strong> sur <strong>${total}</strong> document(s) — Page ${currentDocCatalogPage}/${totalPages} ${sourceLabel}`;
+        }
+
+        if (prevBtn) prevBtn.disabled = currentDocCatalogPage <= 1;
+        if (nextBtn) nextBtn.disabled = currentDocCatalogPage >= totalPages;
+
+        if (pageItems.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align:center; padding:3rem; color:#94a3b8;">
+                        <i data-lucide="search-x" style="width:32px; height:32px; margin-bottom:0.5rem; color:#64748b;"></i>
+                        <div>Aucun document ne correspond à vos critères de recherche.</div>
+                    </td>
+                </tr>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
+        tbody.innerHTML = pageItems.map((doc, idx) => {
+            const globalIndex = startIndex + idx;
+            const badge = getDocCategoryBadge(doc.category);
+            return `
+                <tr class="doc-row-item">
+                    <td style="font-weight:600; color:#f8fafc;">
+                        <div style="display:flex; align-items:center; gap:0.6rem;">
+                            <i data-lucide="file-text" style="width:16px; height:16px; color:var(--color-gold); flex-shrink:0;"></i>
+                            <span title="${escapeHtml(doc.filename)}" style="line-height:1.35;">${escapeHtml(doc.title)}</span>
+                        </div>
+                    </td>
+                    <td>${badge}</td>
+                    <td style="text-align:center;"><span style="font-weight:700; color:var(--color-gold);">${doc.chunks}</span> <small style="color:#64748b;">chunks</small></td>
+                    <td style="text-align:center;"><span style="color:#34d399; font-weight:600; font-size:0.8rem;">● Actif</span></td>
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:0.4rem; justify-content:flex-end; flex-wrap:wrap;">
+                            <button class="btn-doc-view" onclick="openDocPreviewModal(${globalIndex})" title="Consulter">
+                                <i data-lucide="eye"></i>
+                            </button>
+                            <button class="btn-doc-edit" onclick="openEditDocModal(${globalIndex})" title="Modifier" style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); padding:0.3rem 0.55rem; border-radius:6px; cursor:pointer; font-size:0.78rem; display:inline-flex; align-items:center; gap:0.3rem; transition:background 0.2s;">
+                                <i data-lucide="pencil" style="width:13px; height:13px;"></i>
+                            </button>
+                            <button class="btn-doc-delete" onclick="openDeleteDocModal(${globalIndex})" title="Supprimer" style="background:rgba(239,68,68,0.12); color:#f87171; border:1px solid rgba(239,68,68,0.3); padding:0.3rem 0.55rem; border-radius:6px; cursor:pointer; font-size:0.78rem; display:inline-flex; align-items:center; gap:0.3rem; transition:background 0.2s;">
+                                <i data-lucide="trash-2" style="width:13px; height:13px;"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
+    window.prevDocsPage = function() {
+        if (currentDocCatalogPage > 1) { currentDocCatalogPage--; window.renderDocCatalog(); }
+    };
+    window.nextDocsPage = function() {
+        const totalPages = Math.ceil(filteredDocCatalog.length / DOCS_PAGE_SIZE) || 1;
+        if (currentDocCatalogPage < totalPages) { currentDocCatalogPage++; window.renderDocCatalog(); }
+    };
+
+    // ── MODAL CONSULTER ──────────────────────────────────────────────────────
+    window.openDocPreviewModal = function(index) {
+        const doc = filteredDocCatalog[index];
+        if (!doc) return;
+        const modal = document.getElementById('adminDocModal');
+        if (!modal) return;
+        document.getElementById('modalDocTitle').textContent = doc.title;
+        document.getElementById('modalDocCategory').innerHTML = getDocCategoryBadge(doc.category);
+        document.getElementById('modalDocFilename').textContent = doc.filename;
+        document.getElementById('modalDocChunks').textContent = `${doc.chunks} segment(s) indexé(s)`;
+        document.getElementById('modalDocPath').textContent = doc.path || `${doc.category} / ${doc.filename}`;
+        document.getElementById('modalDocPreview').textContent = doc.first_page_preview
+            ? doc.first_page_preview + '...'
+            : 'Contenu indexé avec succès dans la base vectorielle de PROCURA.';
+        modal.classList.remove('hidden');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
+    window.closeDocPreviewModal = function(e) {
+        if (e && e.target && e.target.id !== 'adminDocModal' && !e.target.closest('.btn-close-admin') && !e.target.closest('.admin-btn-secondary')) return;
+        const modal = document.getElementById('adminDocModal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    // ── MODAL MODIFIER ───────────────────────────────────────────────────────
+    window.openEditDocModal = function(index) {
+        const doc = filteredDocCatalog[index];
+        if (!doc) return;
+        document.getElementById('editDocId').value = doc.id || '';
+        document.getElementById('editDocIndex').value = index;
+        document.getElementById('editDocTitle').value = doc.title;
+        // Sélectionner la bonne catégorie
+        const sel = document.getElementById('editDocCategory');
+        for (let i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === doc.category) { sel.selectedIndex = i; break; }
+        }
+        // Reset alertes
+        const ok = document.getElementById('editDocSuccess');
+        const err = document.getElementById('editDocError');
+        if (ok) ok.classList.add('hidden');
+        if (err) err.classList.add('hidden');
+        // Ouvrir
+        document.getElementById('adminEditDocModal').classList.remove('hidden');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
+    window.closeEditDocModal = function(e) {
+        if (e && e.target && e.target.id !== 'adminEditDocModal' && !e.target.closest('.btn-close-admin') && !e.target.closest('.admin-btn-secondary')) return;
+        document.getElementById('adminEditDocModal').classList.add('hidden');
+    };
+
+    window.saveDocEdit = async function() {
+        const id = document.getElementById('editDocId').value;
+        const index = parseInt(document.getElementById('editDocIndex').value);
+        const newTitle = document.getElementById('editDocTitle').value.trim();
+        const newCategory = document.getElementById('editDocCategory').value;
+        const btn = document.getElementById('btnSaveDocEdit');
+        const ok = document.getElementById('editDocSuccess');
+        const errEl = document.getElementById('editDocError');
+
+        if (!newTitle) { alert('Le titre ne peut pas être vide.'); return; }
+
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Sauvegarde...'; lucide.createIcons(); }
+        if (ok) ok.classList.add('hidden');
+        if (errEl) errEl.classList.add('hidden');
+
+        try {
+            if (docSourceIsSupabase && id) {
+                // Mise à jour dans Supabase
+                const res = await sbDocFetch('PATCH', `procura_documents?id=eq.${encodeURIComponent(id)}`, {
+                    title: newTitle,
+                    category: newCategory
+                });
+                if (!res.ok) {
+                    const txt = await res.text();
+                    throw new Error('Supabase: ' + txt);
+                }
+            }
+            // Mise à jour en mémoire
+            filteredDocCatalog[index].title = newTitle;
+            filteredDocCatalog[index].category = newCategory;
+            // Mettre à jour aussi dans adminDocCatalog
+            const masterDoc = adminDocCatalog.find(d => d.id === id || (d.title === filteredDocCatalog[index].title && d.filename === filteredDocCatalog[index].filename));
+            if (masterDoc) { masterDoc.title = newTitle; masterDoc.category = newCategory; }
+
+            if (ok) { ok.textContent = 'Modification enregistrée avec succès.'; ok.classList.remove('hidden'); }
+            window.renderDocCatalog();
+            setTimeout(() => document.getElementById('adminEditDocModal').classList.add('hidden'), 1200);
+        } catch (err) {
+            if (errEl) { errEl.textContent = 'Erreur : ' + err.message; errEl.classList.remove('hidden'); }
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i data-lucide="save"></i> Sauvegarder'; lucide.createIcons(); }
+        }
+    };
+
+    // ── MODAL SUPPRIMER ──────────────────────────────────────────────────────
+    window.openDeleteDocModal = function(index) {
+        const doc = filteredDocCatalog[index];
+        if (!doc) return;
+        document.getElementById('deleteDocId').value = doc.id || '';
+        document.getElementById('deleteDocIndex').value = index;
+        document.getElementById('deleteDocName').textContent = doc.title;
+        const errEl = document.getElementById('deleteDocError');
+        if (errEl) errEl.classList.add('hidden');
+        document.getElementById('adminDeleteDocModal').classList.remove('hidden');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
+    window.closeDeleteDocModal = function(e) {
+        if (e && e.target && e.target.id !== 'adminDeleteDocModal' && !e.target.closest('.btn-close-admin') && !e.target.closest('.admin-btn-secondary')) return;
+        document.getElementById('adminDeleteDocModal').classList.add('hidden');
+    };
+
+    window.confirmDeleteDoc = async function() {
+        const id = document.getElementById('deleteDocId').value;
+        const index = parseInt(document.getElementById('deleteDocIndex').value);
+        const btn = document.getElementById('btnConfirmDelete');
+        const errEl = document.getElementById('deleteDocError');
+
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Suppression...'; lucide.createIcons(); }
+        if (errEl) errEl.classList.add('hidden');
+
+        try {
+            if (docSourceIsSupabase && id) {
+                // Suppression douce (is_active = false) pour conserver l'historique
+                const res = await sbDocFetch('PATCH', `procura_documents?id=eq.${encodeURIComponent(id)}`, {
+                    is_active: false
+                });
+                if (!res.ok) {
+                    const txt = await res.text();
+                    throw new Error('Supabase: ' + txt);
+                }
+            }
+            // Supprimer de la mémoire
+            const docToRemove = filteredDocCatalog[index];
+            filteredDocCatalog.splice(index, 1);
+            if (adminDocCatalog) {
+                const masterIdx = adminDocCatalog.findIndex(d => d.id === id || (d.title === docToRemove.title && d.filename === docToRemove.filename));
+                if (masterIdx !== -1) adminDocCatalog.splice(masterIdx, 1);
+            }
+            // Mettre à jour le compteur
+            document.getElementById('statCatalogDocs').textContent = adminDocCatalog ? adminDocCatalog.length : '';
+            const opt0 = document.querySelector('#docCategoryFilter option[value=""]');
+            if (opt0 && adminDocCatalog) opt0.textContent = `Tous les répertoires (${adminDocCatalog.length} documents)`;
+
+            document.getElementById('adminDeleteDocModal').classList.add('hidden');
+            window.renderDocCatalog();
+        } catch (err) {
+            if (errEl) { errEl.textContent = 'Erreur : ' + err.message; errEl.classList.remove('hidden'); }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="trash-2"></i> Supprimer définitivement';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        }
+    };
+
+    window.renderCategoryBreakdown = function() {
+        const grid = document.getElementById('categoryBreakdownGrid');
+        if (!grid || !adminDocCatalog) return;
+
+        // Calculer dynamiquement depuis adminDocCatalog
+        const countByCategory = {};
+        adminDocCatalog.forEach(doc => {
+            const cat = doc.category || 'Autres';
+            countByCategory[cat] = (countByCategory[cat] || 0) + 1;
+        });
+        const sorted = Object.entries(countByCategory).sort((a, b) => b[1] - a[1]);
+
+        grid.innerHTML = sorted.map(([name, count]) => `
+            <div class="cat-breakdown-card">
+                <span class="cat-name">${escapeHtml(name)}</span>
+                <span class="cat-count" style="font-size:0.95rem;">${count} doc${count > 1 ? 's' : ''}</span>
+            </div>
+        `).join('');
+    };
+
+    // ── UPLOAD RÉEL VERS SUPABASE ────────────────────────────────────────────
+    window.handleAdminFileSelected = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        selectedAdminFile = file;
+        const nameDisplay = document.getElementById('fileNameDisplay');
+        const previewBox = document.getElementById('filePreviewBox');
+        const dropzoneContent = document.getElementById('dropzoneContent');
+        const docTitleInput = document.getElementById('docTitleInput');
+        if (nameDisplay) nameDisplay.textContent = file.name + ` (${(file.size / 1024 / 1024).toFixed(2)} Mo)`;
+        if (docTitleInput && !docTitleInput.value) docTitleInput.value = file.name.replace(/\.[^/.]+$/, '');
+        if (previewBox) previewBox.classList.remove('hidden');
+        if (dropzoneContent) dropzoneContent.classList.add('hidden');
+    };
+
+    window.clearSelectedAdminFile = function(e) {
+        if (e) e.stopPropagation();
+        selectedAdminFile = null;
+        const fileInput = document.getElementById('adminFileInput');
+        if (fileInput) fileInput.value = '';
+        const previewBox = document.getElementById('filePreviewBox');
+        const dropzoneContent = document.getElementById('dropzoneContent');
+        if (previewBox) previewBox.classList.add('hidden');
+        if (dropzoneContent) dropzoneContent.classList.remove('hidden');
+    };
+
+    window.processAdminDocUpload = async function() {
+        const category = document.getElementById('docCategorySelect').value;
+        const title = document.getElementById('docTitleInput').value.trim();
+
+        if (!title) { alert('Veuillez saisir un titre officiel pour le document.'); return; }
+        if (!selectedAdminFile) { alert('Veuillez sélectionner un fichier PDF ou DOCX.'); return; }
+
+        const btn = document.getElementById('btnUploadDoc');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="spin"></i> Enregistrement en cours...`;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        const alertEl = document.getElementById('docUploadSuccess');
+
+        try {
+            let storageUrl = '';
+
+            // 1. Upload du fichier dans Supabase Storage (bucket procura-docs)
+            if (docSourceIsSupabase) {
+                const filePath = `uploads/${Date.now()}_${selectedAdminFile.name.replace(/\s+/g, '_')}`;
+                const uploadRes = await fetch(`${PROCURA_SUPABASE_URL}/storage/v1/object/procura-docs/${filePath}`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': PROCURA_ANON_KEY,
+                        'Authorization': 'Bearer ' + PROCURA_ANON_KEY,
+                        'Content-Type': selectedAdminFile.type || 'application/octet-stream'
+                    },
+                    body: selectedAdminFile
+                });
+                if (uploadRes.ok) {
+                    storageUrl = `${PROCURA_SUPABASE_URL}/storage/v1/object/public/procura-docs/${filePath}`;
+                } else {
+                    console.warn('[Upload] Storage upload failed (bucket peut-être inexistant), on continue sans URL.');
+                }
+            }
+
+            // 2. Créer l'entrée dans la table procura_documents
+            const newDoc = {
+                title,
+                filename: selectedAdminFile.name,
+                category,
+                path: `Uploads Admin / ${category} / ${selectedAdminFile.name}`,
+                chunks: 0,
+                storage_url: storageUrl,
+                first_page_preview: `Document "${title}" ajouté par l'administrateur le ${new Date().toLocaleDateString('fr-FR')}.`
+            };
+
+            let insertedId = null;
+            if (docSourceIsSupabase) {
+                const insertRes = await sbDocFetch('POST', 'procura_documents', [newDoc]);
+                if (insertRes.ok) {
+                    const inserted = await insertRes.json();
+                    if (inserted && inserted[0]) insertedId = inserted[0].id;
+                } else {
+                    console.warn('[Upload] Insert Supabase échoué:', await insertRes.text());
+                }
+            }
+
+            // 3. Ajouter en tête du catalogue en mémoire
+            const memDoc = { ...newDoc, id: insertedId || ('local_' + Date.now()) };
+            if (adminDocCatalog) adminDocCatalog.unshift(memDoc);
+
+            // 4. Feedback UI
+            if (alertEl) {
+                alertEl.textContent = `Le document "${title}" a été ${docSourceIsSupabase ? 'enregistré dans Supabase' : 'ajouté au catalogue local'} avec succès dans la catégorie [${category}].`;
+                alertEl.classList.remove('hidden');
+                setTimeout(() => alertEl.classList.add('hidden'), 6000);
+            }
+
+            // Mettre à jour compteurs
+            document.getElementById('statCatalogDocs').textContent = adminDocCatalog ? adminDocCatalog.length : '';
+            const opt0 = document.querySelector('#docCategoryFilter option[value=""]');
+            if (opt0 && adminDocCatalog) opt0.textContent = `Tous les répertoires (${adminDocCatalog.length} documents)`;
+
+            clearSelectedAdminFile();
+            document.getElementById('docTitleInput').value = '';
+            window.filterDocCatalog();
+            window.renderCategoryBreakdown();
+
+        } catch (err) {
+            if (alertEl) {
+                alertEl.textContent = `Erreur lors de l'upload : ${err.message}`;
+                alertEl.classList.remove('hidden');
+                alertEl.style.background = 'rgba(239,68,68,0.12)';
+                alertEl.style.color = '#f87171';
+                alertEl.style.borderColor = '#f87171';
+                setTimeout(() => { alertEl.classList.add('hidden'); alertEl.style = ''; }, 8000);
+            }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="check-circle"></i> Enregistrer et Indexer le Document`;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        }
     };
 
     function getDocCategoryBadge(category) {
