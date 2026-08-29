@@ -2813,260 +2813,91 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     let adminUsersList = [];
     let filteredAdminUsers = [];
 
+    const PLAN_LABELS_ADMIN = {
+        'free':       'GRATUIT (Découverte)',
+        'daily':      'JOURNALIER (600 FCFA)',
+        'journalier': 'JOURNALIER (600 FCFA)',
+        'weekly':     'HEBDOMADAIRE (1 800 FCFA)',
+        'hebdo':      'HEBDOMADAIRE (1 800 FCFA)',
+        'monthly':    'MENSUEL (~9 000 FCFA)',
+        'mensuel':    'MENSUEL (~9 000 FCFA)',
+        'annual':     'ANNUEL (100 000 FCFA)',
+        'annuel':     'ANNUEL (100 000 FCFA)',
+        'admin':      'ADMINISTRATEUR (Illimité)'
+    };
+
+    function planBadgeClass(plan) {
+        const p = (plan || 'free').toLowerCase();
+        if (p === 'admin' || p === 'annual' || p === 'annuel') return 'gold';
+        if (p === 'monthly' || p === 'mensuel') return 'blue';
+        return 'green';
+    }
+
     window.loadAndRenderAdminUsers = async function() {
-        const defaultUsers = [
-            {
-                name: "Akibou BASSABI-MOUSSE",
-                email: "support@bassentreprises.com",
-                org: "Bass Consulting • Directeur Général",
-                country: "Bénin / International",
-                plan: "admin",
-                planLabel: "ADMINISTRATEUR (Illimité)",
-                status: "Actif",
-                joined: "01/01/2026",
-                avatar: "AB",
-                badgeClass: "gold"
-            },
-            {
-                name: "Arafath BASSABI",
-                email: "arafath@bassentreprises.com",
-                org: "Bass Consulting • Administrateur Système",
-                country: "Bénin",
-                plan: "annuel",
-                planLabel: "ANNUEL (70 000 FCFA)",
-                status: "Actif",
-                joined: "15/01/2026",
-                avatar: "AB",
-                badgeClass: "gold"
-            },
-            {
-                name: "Jean-Baptiste Kouassi",
-                email: "j.kouassi@armp.ci",
-                org: "ARCOP Côte d'Ivoire • Dir. des Audits",
-                country: "Côte d'Ivoire",
-                plan: "annuel",
-                planLabel: "ANNUEL (70 000 FCFA)",
-                status: "Actif",
-                joined: "03/02/2026",
-                avatar: "JK",
-                badgeClass: "blue"
-            },
-            {
-                name: "Aïchatou Mahamadou",
-                email: "aichatou.m@boad.org",
-                org: "BOAD (Lomé) • Spécialiste Principal Marchés",
-                country: "Togo / Régional",
-                plan: "annuel",
-                planLabel: "ANNUEL (70 000 FCFA)",
-                status: "Actif",
-                joined: "12/02/2026",
-                avatar: "AM",
-                badgeClass: "blue"
-            },
-            {
-                name: "Dr. Mamadou Diallo",
-                email: "m.diallo@arcop.sn",
-                org: "ARCOP Sénégal • Chef Div. Réglementation",
-                country: "Sénégal",
-                plan: "mensuel",
-                planLabel: "MENSUEL (10 000 FCFA)",
-                status: "Actif",
-                joined: "20/02/2026",
-                avatar: "MD",
-                badgeClass: "blue"
-            },
-            {
-                name: "Eliezer N’Goran",
-                email: "e.ngoran@equipement.gouv.ci",
-                org: "Ministère des TP • PRMP",
-                country: "Côte d'Ivoire",
-                plan: "mensuel",
-                planLabel: "MENSUEL (10 000 FCFA)",
-                status: "Actif",
-                joined: "05/03/2026",
-                avatar: "EN",
-                badgeClass: "blue"
-            },
-            {
-                name: "Christian Tchedji",
-                email: "c.tchedji@armp.bj",
-                org: "ARMP Bénin • Auditeur Senior",
-                country: "Bénin",
-                plan: "mensuel",
-                planLabel: "MENSUEL (10 000 FCFA)",
-                status: "Actif",
-                joined: "14/03/2026",
-                avatar: "CT",
-                badgeClass: "blue"
-            },
-            {
-                name: "Serge K. Avodagbe",
-                email: "s.avodagbe@consulting.bj",
-                org: "Afrique Stratégie • Consultant Senior BTP",
-                country: "Bénin",
-                plan: "annuel",
-                planLabel: "ANNUEL (70 000 FCFA)",
-                status: "Actif",
-                joined: "22/03/2026",
-                avatar: "SA",
-                badgeClass: "gold"
-            },
-            {
-                name: "Aminata Traoré",
-                email: "a.traore@armds.ml",
-                org: "ARMDS Mali • Spécialiste Contrats Publics",
-                country: "Mali",
-                plan: "hebdo",
-                planLabel: "HEBDOMADAIRE (3 000 FCFA)",
-                status: "Actif",
-                joined: "02/04/2026",
-                avatar: "AT",
-                badgeClass: "green"
-            },
-            {
-                name: "Ousmane Sawadogo",
-                email: "o.sawadogo@arcop.bf",
-                org: "ARCOP Burkina Faso • Juriste Marchés",
-                country: "Burkina Faso",
-                plan: "mensuel",
-                planLabel: "MENSUEL (10 000 FCFA)",
-                status: "Actif",
-                joined: "18/04/2026",
-                avatar: "OS",
-                badgeClass: "blue"
-            },
-            {
-                name: "Dieudonné Kabasele",
-                email: "d.kabasele@armp-rdc.org",
-                org: "ARMP RDC • Expert Régulation",
-                country: "RDC",
-                plan: "annuel",
-                planLabel: "ANNUEL (70 000 FCFA)",
-                status: "Actif",
-                joined: "25/04/2026",
-                avatar: "DK",
-                badgeClass: "gold"
-            },
-            {
-                name: "Koffi Mensah",
-                email: "k.mensah@arcop.tg",
-                org: "ARCOP Togo • Dir. des Recours",
-                country: "Togo",
-                plan: "mensuel",
-                planLabel: "MENSUEL (10 000 FCFA)",
-                status: "Actif",
-                joined: "02/05/2026",
-                avatar: "KM",
-                badgeClass: "blue"
-            },
-            {
-                name: "Fatoumata Camara",
-                email: "f.camara@armp.gov.gn",
-                org: "ARMP Guinée • Conseillère Passation",
-                country: "Guinée",
-                plan: "journalier",
-                planLabel: "JOURNALIER (1 000 FCFA)",
-                status: "Actif",
-                joined: "11/05/2026",
-                avatar: "FC",
-                badgeClass: "green"
-            },
-            {
-                name: "Rodrigue Mboumba",
-                email: "r.mboumba@arcop.ga",
-                org: "ARCOP Gabon • Suivi-Évaluation",
-                country: "Gabon",
-                plan: "hebdo",
-                planLabel: "HEBDOMADAIRE (3 000 FCFA)",
-                status: "Actif",
-                joined: "28/05/2026",
-                avatar: "RM",
-                badgeClass: "green"
-            },
-            {
-                name: "Nathalie Essomba",
-                email: "n.essomba@armp.cm",
-                org: "ARMP Cameroun • Analyste DAO",
-                country: "Cameroun",
-                plan: "mensuel",
-                planLabel: "MENSUEL (10 000 FCFA)",
-                status: "Actif",
-                joined: "09/06/2026",
-                avatar: "NE",
-                badgeClass: "blue"
-            },
-            {
-                name: "Abdoulaye Sow",
-                email: "a.sow@banquemondiale.sn",
-                org: "Projet BM / Ministère Finances",
-                country: "Sénégal",
-                plan: "annuel",
-                planLabel: "ANNUEL (70 000 FCFA)",
-                status: "Actif",
-                joined: "15/06/2026",
-                avatar: "AS",
-                badgeClass: "gold"
-            }
-        ];
+        // Réinitialiser les filtres pour tout afficher
+        const searchInput = document.getElementById('userSearchInput');
+        const planFilter = document.getElementById('userPlanFilter');
+        if (searchInput) searchInput.value = '';
+        if (planFilter) planFilter.value = '';
 
-        adminUsersList = [...defaultUsers];
+        const tbody = document.getElementById('usersTbody');
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:#94a3b8;">Chargement des utilisateurs...</td></tr>`;
 
-        // Fetch real Supabase profiles if available
+        adminUsersList = [];
+
+        // ── 1. Charger depuis Supabase profiles ──
         if (supabase) {
             try {
-                const { data: profiles, error } = await supabase.from('profiles').select('*');
+                const { data: profiles, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
                 if (profiles && profiles.length > 0) {
                     profiles.forEach(p => {
-                        const email = p.email || (p.user_metadata && p.user_metadata.email);
+                        const email = p.email || '';
                         if (!email) return;
-                        const exists = adminUsersList.some(u => u.email.toLowerCase() === email.toLowerCase());
-                        if (!exists) {
-                            const planKey = (p.plan || 'free').toLowerCase();
-                            const planLabels = {
-                                'free': 'GRATUIT (Découverte)',
-                                'journalier': 'JOURNALIER (1 000 FCFA)',
-                                'hebdo': 'HEBDOMADAIRE (3 000 FCFA)',
-                                'mensuel': 'MENSUEL (10 000 FCFA)',
-                                'annuel': 'ANNUEL (70 000 FCFA)',
-                                'admin': 'ADMINISTRATEUR (Illimité)'
-                            };
-                            adminUsersList.push({
-                                name: p.full_name || (p.user_metadata && p.user_metadata.full_name) || email.split('@')[0],
-                                email: email,
-                                org: p.organization || (p.profile_type === 'agent' ? 'Agent Public' : 'Opérateur Économique'),
-                                country: p.country || 'Bénin',
-                                plan: planKey,
-                                planLabel: planLabels[planKey] || 'GRATUIT',
-                                status: 'Actif',
-                                joined: p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR') : 'Récent',
-                                avatar: email.substring(0, 2).toUpperCase(),
-                                badgeClass: planKey === 'admin' || planKey === 'annuel' ? 'gold' : (planKey === 'mensuel' ? 'blue' : 'green')
-                            });
-                        }
+                        const planKey = (p.plan || 'free').toLowerCase();
+                        adminUsersList.push({
+                            id: p.id,
+                            name: p.full_name || email.split('@')[0],
+                            email: email,
+                            org: p.organization || (p.profile_type === 'agent' ? 'Agent Public' : 'Opérateur Économique'),
+                            country: p.country || '—',
+                            plan: planKey,
+                            planLabel: PLAN_LABELS_ADMIN[planKey] || planKey.toUpperCase(),
+                            questions: p.questions_asked || 0,
+                            status: 'Actif',
+                            joined: p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR') : '—',
+                            avatar: email.substring(0, 2).toUpperCase(),
+                            badgeClass: planBadgeClass(planKey)
+                        });
                     });
                 }
             } catch (err) {
-                console.warn("Supabase profiles query:", err);
+                console.warn('[Admin Users] Erreur Supabase profiles:', err);
             }
         }
 
-        // Add current logged in user if not already in list
+        // ── 2. S'assurer que l'admin connecté est dans la liste ──
         if (currentUser && currentUser.email) {
-            const currentEmail = currentUser.email.toLowerCase().trim();
-            const exists = adminUsersList.some(u => u.email.toLowerCase().trim() === currentEmail);
+            const adminEmail = currentUser.email.toLowerCase().trim();
+            const exists = adminUsersList.some(u => u.email.toLowerCase().trim() === adminEmail);
             if (!exists) {
-                const currentPlan = (currentUserPlan || 'free').toLowerCase();
+                const planKey = 'admin';
                 adminUsersList.unshift({
-                    name: (currentUser.user_metadata && currentUser.user_metadata.full_name) || currentEmail.split('@')[0],
+                    id: currentUser.id,
+                    name: (currentUser.user_metadata && currentUser.user_metadata.full_name) || adminEmail.split('@')[0],
                     email: currentUser.email,
-                    org: (currentUser.user_metadata && currentUser.user_metadata.organization) || 'Utilisateur Connecté',
+                    org: (currentUser.user_metadata && currentUser.user_metadata.organization) || 'Bass Consulting',
                     country: (currentUser.user_metadata && currentUser.user_metadata.country) || 'Bénin',
-                    plan: currentPlan,
-                    planLabel: currentPlan.toUpperCase(),
+                    plan: planKey,
+                    planLabel: PLAN_LABELS_ADMIN[planKey],
+                    questions: 0,
                     status: 'Actif',
-                    joined: 'Aujourd\'hui',
-                    avatar: currentEmail.substring(0, 2).toUpperCase(),
-                    badgeClass: currentPlan === 'admin' || currentPlan === 'annuel' ? 'gold' : 'blue'
+                    joined: currentUser.created_at ? new Date(currentUser.created_at).toLocaleDateString('fr-FR') : '—',
+                    avatar: adminEmail.substring(0, 2).toUpperCase(),
+                    badgeClass: 'gold'
                 });
             }
         }
