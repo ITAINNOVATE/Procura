@@ -2955,10 +2955,11 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             return;
         }
 
-        tbody.innerHTML = filteredAdminUsers.map(user => {
+        tbody.innerHTML = filteredAdminUsers.map((user, idx) => {
             const badgeClass = user.plan === 'admin' ? 'gold' : (user.plan === 'annuel' ? 'gold' : (user.plan === 'mensuel' ? 'blue' : (user.plan === 'hebdo' || user.plan === 'journalier' ? 'green' : 'blue')));
+            const isAdmin = user.plan === 'admin' || (user.email && user.email.toLowerCase() === 'support@bassentreprises.com');
             return `
-                <tr class="doc-row-item">
+                <tr class="doc-row-item" id="user-row-${idx}">
                     <td>
                         <div style="display:flex; align-items:center; gap:0.75rem;">
                             <div style="width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg, #0B1E40, #1e293b); border:1px solid rgba(212,175,55,0.3); display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:700; color:var(--color-gold); flex-shrink:0;">
@@ -2976,13 +2977,67 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                         <small style="color:#64748b;"><i data-lucide="map-pin" style="width:12px; height:12px; vertical-align:middle;"></i> ${escapeHtml(user.country)}</small>
                     </td>
                     <td><span class="admin-badge ${badgeClass}">${escapeHtml(user.planLabel)}</span></td>
-                    <td style="text-align:center;"><span class="admin-status active">● ${escapeHtml(user.status)}</span></td>
+                    <td style="text-align:center;">
+                        ${isAdmin
+                            ? `<span class="admin-status active">● Actif</span>`
+                            : `<button onclick="confirmDeleteUser('${escapeHtml(user.id)}', '${escapeHtml(user.email)}', ${idx})"
+                                title="Supprimer ce compte"
+                                style="background:rgba(239,68,68,0.12); color:#f87171; border:1px solid rgba(239,68,68,0.3); padding:0.3rem 0.6rem; border-radius:6px; cursor:pointer; font-size:0.78rem; display:inline-flex; align-items:center; gap:0.3rem;">
+                                <i data-lucide="trash-2" style="width:13px; height:13px;"></i> Supprimer
+                              </button>`
+                        }
+                    </td>
                 </tr>
             `;
         }).join('');
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
     };
+
+    // ── SUPPRESSION D'UN UTILISATEUR ─────────────────────────────────────────
+    window.confirmDeleteUser = function(userId, email, idx) {
+        if (!confirm(`Supprimer définitivement le compte :\n${email}\n\nCette action est irréversible.`)) return;
+        window.deleteAdminUser(userId, email, idx);
+    };
+
+    window.deleteAdminUser = async function(userId, email, idx) {
+        try {
+            // 1. Supprimer le profil de la table profiles
+            if (supabase && userId && !userId.startsWith('local_')) {
+                const { error } = await supabase
+                    .from('profiles')
+                    .delete()
+                    .eq('id', userId);
+                if (error) throw new Error(error.message);
+            }
+
+            // 2. Retirer de la liste en mémoire
+            const globalIdx = adminUsersList.findIndex(u => u.email === email);
+            if (globalIdx !== -1) adminUsersList.splice(globalIdx, 1);
+            const filtIdx = filteredAdminUsers.findIndex(u => u.email === email);
+            if (filtIdx !== -1) filteredAdminUsers.splice(filtIdx, 1);
+
+            // 3. Supprimer visuellement la ligne
+            const row = document.getElementById('user-row-' + idx);
+            if (row) {
+                row.style.transition = 'opacity 0.3s';
+                row.style.opacity = '0';
+                setTimeout(() => { window.renderAdminUsers(); }, 350);
+            } else {
+                window.renderAdminUsers();
+            }
+
+            // 4. Feedback
+            const countDisplay = document.getElementById('usersCountDisplay');
+            if (countDisplay) countDisplay.innerHTML = `<span style="color:#34d399;">✓ Compte "${email}" supprimé.</span>`;
+            setTimeout(() => window.filterAdminUsers(), 2000);
+
+        } catch (err) {
+            alert('Erreur lors de la suppression : ' + err.message);
+        }
+    };
+
+
 
     function escapeHtml(str) {
         if (!str) return '';
