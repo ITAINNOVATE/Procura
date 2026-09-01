@@ -6,14 +6,19 @@ import traceback
 from pypdf import PdfReader
 from docx import Document
 
+try:
+    import openpyxl
+    HAS_OPENPYXL = True
+except ImportError:
+    HAS_OPENPYXL = False
+
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 # Configuration
-DOCS_DIRS = ["Documents utiles", "Marchés Publics docs"]  # Répertoires sources (Documents utiles en premier)
-OUTPUT_JSON = "knowledge_base.json"
-CHUNK_SIZE = 3000  # Target character size per chunk (optimized for loading speed)
-CHUNK_OVERLAP = 300  # Character overlap between chunks
+DOCS_DIRS = ["Documents utiles", "Marchés Publics docs"]
+CHUNK_SIZE = 3000
+CHUNK_OVERLAP = 300
 
 def clean_text(text):
     """Clean text by removing excessive whitespace and normalizing separators."""
@@ -43,10 +48,8 @@ def get_category(root_path):
     """Determine category based on folder hierarchy."""
     parts = os.path.normpath(root_path).split(os.sep)
     if len(parts) > 1:
-        # Chercher la partie significative du chemin (le sous-dossier thématique)
         for folder_name in parts[1:]:
             fn_upper = folder_name.upper()
-            # Pays
             if "BENIN" in fn_upper or "BÉNIN" in fn_upper:
                 return "Bénin"
             elif "NIGER" in fn_upper and "NIGERIA" not in fn_upper:
@@ -73,9 +76,10 @@ def get_category(root_path):
                 return "Guinée"
             elif "GABON" in fn_upper:
                 return "Gabon"
+            elif "MAURITANIE" in fn_upper or "MAURITAN" in fn_upper:
+                return "Mauritanie"
             elif "RDC" in fn_upper:
                 return "RDC (Congo-Kinshasa)"
-            # Bailleurs
             elif "BANQUE MONDIALE" in fn_upper or "WORLD BANK" in fn_upper:
                 return "Banque Mondiale"
             elif "BOAD" in fn_upper:
@@ -88,7 +92,6 @@ def get_category(root_path):
                 return "BID (Banque Islamique de Développement)"
             elif "UEMOA" in fn_upper:
                 return "UEMOA"
-            # Thématiques et autres
             elif "AIDE EMPLOI" in fn_upper or "EMPLOI" in fn_upper:
                 return "Aide Emploi et Recrutement"
             elif "THEMATIQUES" in fn_upper or "THÉMATIQUES" in fn_upper:
@@ -110,7 +113,7 @@ def extract_pdf_text(file_path):
         reader = PdfReader(file_path, strict=False)
         for i, page in enumerate(reader.pages):
             try:
-                text = page.extract_text()
+                text = page.extract_text() or ""
                 cleaned = clean_text(text)
                 if cleaned:
                     pages.append((i + 1, cleaned))
@@ -138,88 +141,83 @@ def extract_docx_text(file_path):
         print(f"Error reading DOCX {file_path}: {e}")
     return "\n".join(paragraphs)
 
+def extract_doc_legacy_text(file_path):
+    """Extract text from binary .doc files via UTF-16 and ASCII heuristics."""
+    try:
+        with open(file_path, 'rb') as f:
+            data = f.read()
+        u16_strings = re.findall(rb'(?:[\x20-\x7E\xA0-\xFF]\x00){4,}', data)
+        parts = [s.decode('utf-16le', errors='ignore') for s in u16_strings]
+        if not parts or sum(len(p) for p in parts) < 100:
+            ascii_strings = re.findall(rb'[\x20-\x7E\xA0-\xFF]{4,}', data)
+            parts = [s.decode('latin1', errors='ignore') for s in ascii_strings]
+        return clean_text("\n".join(parts))
+    except Exception as e:
+        print(f"Error reading legacy DOC {file_path}: {e}")
+        return ""
+
+def extract_xlsx_text(file_path):
+    """Extract text from XLSX sheets."""
+    if not HAS_OPENPYXL:
+        return ""
+    try:
+        wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+        lines = []
+        for sheetname in wb.sheetnames:
+            ws = wb[sheetname]
+            lines.append(f"--- Feuille: {sheetname} ---")
+            for row in ws.iter_rows(values_only=True):
+                vals = [str(v).strip() for v in row if v is not None and str(v).strip()]
+                if vals:
+                    lines.append(" | ".join(vals))
+        return clean_text("\n".join(lines))
+    except Exception as e:
+        print(f"Error reading XLSX {file_path}: {e}")
+        return ""
+
 def main():
-    print("Starting document parsing...")
+    print("🚀 Démarrage de l'indexation complète des documents...")
     knowledge_base = []
     chunk_counter = 0
+    processed_files = {}  # filename -> catalog item
     file_counter = 0
-
-    processed_files = set()
-    processed_sizes = set()
 
     for DOCS_DIR in DOCS_DIRS:
         if not os.path.exists(DOCS_DIR):
-            print(f"Directory {DOCS_DIR} does not exist, skipping.")
+            print(f"Répertoire {DOCS_DIR} introuvable, ignoré.")
             continue
 
-        print(f"\n=== Scanning: {DOCS_DIR} ===")
+        print(f"\n📂 Analyse du répertoire : {DOCS_DIR}...")
 
         for root, dirs, files in os.walk(DOCS_DIR):
-            # Skip template directories dynamically
-            dirs[:] = [d for d in dirs if not any(x in d.upper() for x in ["DOSSIERS TYPES", "DOSSIERS-TYPES", "DOSSIER_TYPE", "DOSSIER-TYPE"])]
-
             category = get_category(root)
             for file in files:
-                file_path = os.path.join(root, file)
                 ext = os.path.splitext(file)[1].lower()
-                file_upper = file.upper()
 
-                # Skip temp office files or known corrupted PDFs
-                if file.startswith("~$") or file.startswith("._") or "621624_N" in file_upper:
-                    print(f"Skipping corrupted or temporary file: {file}")
+                # Ignorer les fichiers temporaires système Office
+                if file.startswith("~$") or file.startswith("._") or file == "Thumbs.db":
                     continue
 
-                # Skip images, Excel, PowerPoint, legacy .doc (non textuel exploitable)
-                if ext in [".jpg", ".jpeg", ".png", ".gif", ".xls", ".xlsx", ".ppt", ".pptx", ".doc"]:
-                    print(f"Skipping non-text file: {file}")
+                # Ignorer les images pures du scan RAG (gardées hors catalogue ou non textuelles)
+                if ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]:
                     continue
 
-                # Skip template, boilerplate and non-knowledge files
-                if any(file_upper.startswith(prefix) for prefix in ["OPE-M", "AFD-M", "MODEL_TENDER_FILE", "DTAO", "TEMPLATE", "FORM-", "DDP-"]):
-                    print(f"Skipping template file: {file}")
-                    continue
+                file_path = os.path.join(root, file)
 
-                # Additional template keywords to skip
-                template_keywords = [
-                    "DEMANDE DE PROPOSITIONS", "DEMANDE_DE_PROPOSITIONS",
-                    "DOSSIER D'APPEL", "DOSSIER_D_APPEL", "DOSSIER-D-APPEL",
-                    "PREQUALIFICATION", "PRE-QUALIFICATION", "PRÉQUALIFICATION", "PRÉ-QUALIFICATION",
-                    "TENDER FILE", "TENDER_FILE",
-                    "MODELE D", "MODELE_D", "MODEL D", "MODEL_D", "MODEL-D", "MODÈLE D", "MODÈLE_D",
-                    "ACTE DE NOTIFICATION", "DECISION ATTRIBUTION", "DÉCISION ATTRIBUTION",
-                    "DECISION DECLARATION", "LETTRE D'INFORMATION", "LETTRE_D_INFORMATION",
-                    "FORMULAIRES DE PASSATION", "ORDRE DE SERVICE",
-                    "PLAN DE PASSATION", "PLAN_DE_PASSATION", "PLAN-DE-PASSATION",
-                    "ANNEXE_A", "ANNEXE_B", "ANNEXE_C", "ANNEXE_D",
-                    "PROCUREMENT_PLAN", "PROCUREMENTPLAN", "PPM ", "PPSD",
-                    "LOGO", "SANS TITRE", "TEMPLATELETTEROF",
-                ]
-                if any(kw in file_upper for kw in template_keywords):
-                    print(f"Skipping template/plan file: {file}")
-                    continue
-
-                # Skip Catalogue (except Aide Emploi) and English documents
-                if "CATALOGUE" in file_upper and "EMPLOI" not in category.upper():
-                    print(f"Skipping Catalogue: {file}")
-                    continue
-                if any(x in file_upper for x in ["ENG", "ENGLISH", "_EN.", "-EN."]):
-                    print(f"Skipping English file: {file}")
-                    continue
-
-                # Deduplicate files by name
-                try:
-                    file_size = os.path.getsize(file_path)
-                except (OSError, FileNotFoundError) as e:
-                    print(f"Skipping (path too long or inaccessible): {file_path[:80]}... ({e})")
-                    continue
-
+                # Si le fichier est déjà traité (dédoublonnage par nom), on conserve la première occurrence
                 if file in processed_files:
-                    print(f"Skipping duplicate file: {file}")
                     continue
 
-                processed_files.add(file)
+                title = file.replace("_", " ").replace("-", " ").rsplit(".", 1)[0].strip()
 
-                print(f"Parsing {file_path} [{category}]...")
+                catalog_entry = {
+                    "filename": file,
+                    "title": title,
+                    "category": category,
+                    "path": file_path.replace("\\", "/"),
+                    "chunks": 0,
+                    "first_page_preview": ""
+                }
 
                 file_chunks = []
 
@@ -238,7 +236,8 @@ def main():
                                     "content": chunk
                                 })
                                 chunk_counter += 1
-                        file_counter += 1
+                        if pages and not catalog_entry["first_page_preview"]:
+                            catalog_entry["first_page_preview"] = pages[0][1][:300]
 
                     elif ext == ".docx":
                         full_text = extract_docx_text(file_path)
@@ -255,30 +254,90 @@ def main():
                                     "content": chunk
                                 })
                                 chunk_counter += 1
-                        file_counter += 1
+                            catalog_entry["first_page_preview"] = cleaned[:300]
 
-                    else:
-                        continue
+                    elif ext == ".doc":
+                        doc_text = extract_doc_legacy_text(file_path)
+                        if doc_text:
+                            chunks = get_chunks(doc_text)
+                            for idx, chunk in enumerate(chunks):
+                                file_chunks.append({
+                                    "id": f"chunk_{chunk_counter}",
+                                    "source": file,
+                                    "path": file_path.replace("\\", "/"),
+                                    "category": category,
+                                    "title": f"{file} - Partie {idx + 1}",
+                                    "content": chunk
+                                })
+                                chunk_counter += 1
+                            catalog_entry["first_page_preview"] = doc_text[:300]
+
+                    elif ext in [".xlsx", ".xls"]:
+                        if ext == ".xlsx":
+                            xlsx_text = extract_xlsx_text(file_path)
+                            if xlsx_text:
+                                chunks = get_chunks(xlsx_text)
+                                for idx, chunk in enumerate(chunks):
+                                    file_chunks.append({
+                                        "id": f"chunk_{chunk_counter}",
+                                        "source": file,
+                                        "path": file_path.replace("\\", "/"),
+                                        "category": category,
+                                        "title": f"{file} - Tableur (Partie {idx + 1})",
+                                        "content": chunk
+                                    })
+                                    chunk_counter += 1
+                                catalog_entry["first_page_preview"] = xlsx_text[:300]
+
+                    elif ext in [".rtf", ".txt"]:
+                        try:
+                            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                                t = clean_text(f.read())
+                            if t:
+                                chunks = get_chunks(t)
+                                for idx, chunk in enumerate(chunks):
+                                    file_chunks.append({
+                                        "id": f"chunk_{chunk_counter}",
+                                        "source": file,
+                                        "path": file_path.replace("\\", "/"),
+                                        "category": category,
+                                        "title": f"{file} - Texte",
+                                        "content": chunk
+                                    })
+                                    chunk_counter += 1
+                                catalog_entry["first_page_preview"] = t[:300]
+                        except Exception:
+                            pass
 
                 except Exception as e:
-                    print(f"⚠️  Erreur lors du traitement de {file}: {e}")
-                    continue
+                    print(f"⚠️ Erreur lors du traitement de {file}: {e}")
 
+                catalog_entry["chunks"] = len(file_chunks)
+                if not catalog_entry["first_page_preview"]:
+                    if ext == ".pdf":
+                        catalog_entry["first_page_preview"] = "[Document PDF scanné / sans couche texte OCR]"
+                    elif ext in [".xls", ".xlsx"]:
+                        catalog_entry["first_page_preview"] = "[Tableur financier / Plan de passation]"
+                    else:
+                        catalog_entry["first_page_preview"] = "[Document de référence]"
+
+                processed_files[file] = catalog_entry
                 knowledge_base.extend(file_chunks)
+                file_counter += 1
 
-    # Save to JSON in chunks to avoid GitHub 100MB limit
-    CHUNK_SIZE = 8000
+    # ── Sauvegarde de la base de connaissances (Knowledge Base Chunks) ──
+    PART_CHUNK_SIZE = 8000
     total_chunks = len(knowledge_base)
-    num_parts = (total_chunks + CHUNK_SIZE - 1) // CHUNK_SIZE
+    num_parts = (total_chunks + PART_CHUNK_SIZE - 1) // PART_CHUNK_SIZE if total_chunks > 0 else 1
 
     for i in range(num_parts):
-        part_data = knowledge_base[i*CHUNK_SIZE : (i+1)*CHUNK_SIZE]
+        part_data = knowledge_base[i*PART_CHUNK_SIZE : (i+1)*PART_CHUNK_SIZE]
         part_filename = f"knowledge_base_part_{i+1}.json"
         with open(part_filename, "w", encoding="utf-8") as f:
             json.dump(part_data, f, ensure_ascii=False, indent=2)
-        print(f"Partie {i+1}/{num_parts} sauvegardée dans {part_filename} ({os.path.getsize(part_filename) / 1024 / 1024:.2f} MB)")
+        print(f"✅ Partie {i+1}/{num_parts} sauvegardée dans {part_filename} ({os.path.getsize(part_filename) / 1024 / 1024:.2f} MB)")
 
-    # Write metadata
+    # Metadata
     meta = {
         "total_chunks": total_chunks,
         "num_parts": num_parts
@@ -286,7 +345,19 @@ def main():
     with open("knowledge_base_meta.json", "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
 
-    print(f"\n✅ Parsing terminé. {file_counter} fichiers traités, {total_chunks} chunks générés en {num_parts} parties.")
+    # ── Générer documents_catalog.json (100% des documents uniques) ──
+    catalog = list(processed_files.values())
+    catalog.sort(key=lambda x: (x["category"], x["title"]))
+    with open("documents_catalog.json", "w", encoding="utf-8") as f:
+        json.dump(catalog, f, ensure_ascii=False, indent=2)
+
+    print(f"\n========================================================")
+    print(f"🎉 SUCCÈS COMPLET :")
+    print(f" - Documents uniques dans le catalogue Admin : {len(catalog)}")
+    print(f" - Chunks RAG générés pour l'IA : {total_chunks}")
+    print(f" - Fichier documents_catalog.json mis à jour.")
+    print(f"========================================================")
 
 if __name__ == "__main__":
     main()
+

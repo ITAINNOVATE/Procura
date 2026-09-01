@@ -134,12 +134,13 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6
         if (isBailleur && accessLevel && !accessLevel.allowBailleurs) return false;
 
         if (currentPlan === 'daily' && userCountry) {
-            const countryList = ['benin', 'togo', 'niger', 'burkina', 'senegal', 'mali', 'guinee', 'congo', 'cameroun', 'gabon', 'rdc', 'tchad', 'centrafique', 'ivoire', 'uemoa'];
+            const countryList = ['benin', 'togo', 'niger', 'burkina', 'senegal', 'mali', 'guinee', 'congo', 'cameroun', 'gabon', 'rdc', 'tchad', 'centrafique', 'ivoire', 'mauritanie', 'uemoa'];
             const chunkHasCountry = countryList.some(c => cat.includes(c));
             if (chunkHasCountry) {
                 const matchesUserCountry = cat.includes(userCountry) ||
                     (userCountry.includes('benin') && cat.includes('benin')) ||
                     (userCountry.includes('togo') && cat.includes('togo')) ||
+                    (userCountry.includes('mauritanie') && cat.includes('mauritanie')) ||
                     (userCountry.includes('ivoire') && (cat.includes('ivoire') || cat.includes('rci')));
                 if (!matchesUserCountry) return false;
             }
@@ -254,7 +255,7 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6
         }
 
         // Pénalité de croisement de pays
-        const countries = ["benin", "niger", "congo", "cameroun", "centrafique", "centrafrique", "ivoire", "rci", "togo", "mali", "tchad", "burkina", "senegal", "gabon", "guinee", "rdc", "uemoa"];
+        const countries = ["benin", "niger", "congo", "cameroun", "centrafique", "centrafrique", "ivoire", "rci", "togo", "mali", "tchad", "burkina", "senegal", "gabon", "guinee", "mauritanie", "rdc", "uemoa"];
         const queryHasCountry = queryWords.some(w => countries.includes(w));
         const chunkHasCountry = countries.some(c => item.categoryRaw.includes(c));
 

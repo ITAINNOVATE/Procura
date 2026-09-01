@@ -1,2 +1,8 @@
 config.js
 scratch/
+*.log
+*.txt
+!requirements.txt
+!system_prompt.txt
+__pycache__/
+.DS_Store

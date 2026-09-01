@@ -1641,11 +1641,19 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         // Cas 2 : Contexte documentaire trouvé
         else if (retrievedContext) {
             dynamicSystemPrompt += `\n\n${retrievedContext}`;
-            dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION FINALE : Analyse ces documents avec la plus grande rigueur. Formule ta réponse UNIQUEMENT à partir de ce bloc <context>. Démontre ton expertise de haut niveau sans jamais inventer d'informations. Assure-toi de compléter TOUTES les sections de ta réponse, notamment les "Recommandations Bass Consulting" en fin de réponse.`;
+            dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION CRUCIALE DE JUSTESSE & DE CADRAGE :
+1. Prends le temps d'analyser en profondeur la question de l'utilisateur pour en cerner le périmètre exact (pays, bailleur, étape de la procédure, article visé).
+2. Reste STRICTEMENT DANS LE CADRE de la question posée : zéro hors-sujet, zéro extrapolation, zéro bavardage superflu.
+3. Formule ta réponse UNIQUEMENT et RIGUREUSEMENT à partir du bloc <context> ci-dessus.
+4. Cite précisément les textes de référence (nom de la loi, numéro d'article, décret, directive ou carrousel pédagogique Bass Consulting).
+5. Rédige une réponse structurée, concise, exacte et directement exploitable par le professionnel.`;
         }
         // Cas 3 : Aucun document trouvé
         else {
-            dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION FINALE : AUCUN DOCUMENT OFFICIEL N'A ÉTÉ TROUVÉ DANS LA BASE DE PROCURA POUR CETTE REQUÊTE. Règle absolue : N'invente aucune procédure et n'utilise pas tes connaissances générales. Formule une réponse extrêmement polie et prestigieuse indiquant que cette information spécifique n'est pas répertoriée dans notre référentiel actuel. Suggère courtoisement à l'utilisateur de reformuler sa requête ou de consulter le portail officiel du régulateur compétent pour une parfaite sécurité juridique.`;
+            dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION DE RIGUEUR — AUCUN DOCUMENT TROUVÉ DANS LA BASE :
+Aucun texte officiel ou carrousel n'a été extrait pour cette requête précise.
+Règle absolue : N'INVENTE AUCUNE RÈGLE ni procédure et n'extrapole pas à partir d'autres pays.
+Indique avec courtoisie et professionnalisme que ce point précis n'est pas répertorié dans la base documentaire actuelle de PROCURA, et oriente vers le portail officiel de l'organe de régulation compétent pour une totale sécurité juridique.`;
         }
 
         const isVercel = !isLocalhost;
@@ -1664,10 +1672,9 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             },
             contents: conversationHistory,
             generationConfig: {
-                temperature: 0.3,
+                temperature: 0.1,
                 maxOutputTokens: 8192,
-                topP: 0.9,
-                thinkingConfig: { thinkingBudget: 0 }  // Désactive le thinking pour réponses rapides
+                topP: 0.85
             }
         };
 
@@ -2068,10 +2075,78 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         }
     };
 
+    function getDocCategoryBadge(category) {
+        const cat = category || 'Général';
+        const lower = cat.toLowerCase();
+        let cls = 'country';
+
+        if (lower.includes('banque mondiale') || lower.includes('bad') || lower.includes('bid') || lower.includes('afd') || lower.includes('boad') || lower.includes('uemoa')) {
+            cls = 'institution';
+        }
+        else if (lower.includes('emploi') || lower.includes('recrutement')) {
+            cls = 'employment';
+        }
+        else if (lower.includes('carrousel')) {
+            cls = 'institution';
+        }
+        else if (lower.includes('audit') || lower.includes('durable') || lower.includes('autres') || lower.includes('général')) {
+            cls = 'theme';
+        }
+
+        return `<span class="doc-category-tag ${cls}">${escapeHtml(cat)}</span>`;
+    }
+
+    function populateDocCategoryFilter() {
+        const sel = document.getElementById('docCategoryFilter');
+        if (!sel || !adminDocCatalog) return;
+        const currentVal = sel.value;
+
+        const counts = {};
+        adminDocCatalog.forEach(d => {
+            const cat = d.category || 'Général';
+            counts[cat] = (counts[cat] || 0) + 1;
+        });
+
+        const PAYS = ['Bénin', 'Burkina Faso', 'Cameroun', 'Centrafrique', 'Congo', "Côte d'Ivoire", 'Gabon', 'Guinée', 'Mali', 'Mauritanie', 'Niger', 'RDC (Congo-Kinshasa)', 'Sénégal', 'Tchad', 'Togo'];
+        const BAILLEURS = ['Banque Mondiale', 'BAD (Banque Africaine de Développement)', 'BID (Banque Islamique de Développement)', 'AFD (Agence Française de Développement)', 'BOAD (Banque Ouest-Africaine de Développement)', 'UEMOA'];
+
+        let html = `<option value="">Tous les répertoires (${adminDocCatalog.length} documents)</option>`;
+
+        html += `<optgroup label="── PAYS D'AFRIQUE ──">`;
+        PAYS.forEach(p => {
+            const count = counts[p] || 0;
+            if (count > 0) {
+                html += `<option value="${escapeHtml(p)}">${escapeHtml(p)} (${count})</option>`;
+            }
+        });
+        html += `</optgroup>`;
+
+        html += `<optgroup label="── BAILLEURS & INSTITUTIONS ──">`;
+        BAILLEURS.forEach(b => {
+            const count = counts[b] || 0;
+            if (count > 0) {
+                html += `<option value="${escapeHtml(b)}">${escapeHtml(b)} (${count})</option>`;
+            }
+        });
+        html += `</optgroup>`;
+
+        html += `<optgroup label="── THÉMATIQUES & AUTRES ──">`;
+        Object.keys(counts).sort().forEach(k => {
+            if (!PAYS.includes(k) && !BAILLEURS.includes(k)) {
+                html += `<option value="${escapeHtml(k)}">${escapeHtml(k)} (${counts[k]})</option>`;
+            }
+        });
+        html += `</optgroup>`;
+
+        sel.innerHTML = html;
+        if (currentVal) sel.value = currentVal;
+    }
+
     // ── Chargement du catalogue (Supabase en priorité, fallback JSON) ──
     window.loadAndRenderDocCatalog = async function() {
         if (adminDocCatalog !== null) {
             // Déjà chargé — on re-filtre et re-rend
+            window.renderCategoryBreakdown();
             window.filterDocCatalog();
             return;
         }
@@ -2079,39 +2154,58 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         const countDisplay = document.getElementById('catalogCountDisplay');
         if (countDisplay) countDisplay.innerHTML = 'Chargement du catalogue...';
 
-        // 1. Tenter Supabase
+        // 1. Tenter Supabase avec pagination complète
         try {
-            const res = await sbDocFetch('GET', 'procura_documents?select=*&is_active=eq.true&order=created_at.desc&limit=5000');
-            if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data) && data.length > 0) {
-                    // Supabase a des données — on les utilise
-                    adminDocCatalog = data.map(d => ({
-                        id: d.id,
-                        title: d.title,
-                        filename: d.filename,
-                        category: d.category,
-                        path: d.path || '',
-                        chunks: d.chunks || 0,
-                        storage_url: d.storage_url || '',
-                        first_page_preview: d.first_page_preview || ''
-                    }));
-                    docSourceIsSupabase = true;
-                    console.log(`[Admin] Catalogue chargé depuis Supabase (${adminDocCatalog.length} docs)`);
-                    // Mettre à jour le compteur dans le filtre
-                    const opt0 = document.querySelector('#docCategoryFilter option[value=""]');
-                    if (opt0) opt0.textContent = `Tous les répertoires (${adminDocCatalog.length} documents)`;
-                    document.getElementById('statCatalogDocs').textContent = adminDocCatalog.length;
-                    window.filterDocCatalog();
-                    return;
-                } else if (Array.isArray(data) && data.length === 0) {
-                    // Table vide → seeder depuis JSON
-                    console.log('[Admin] Table Supabase vide → Amorçage depuis documents_catalog.json...');
-                    await seedDocCatalogToSupabase();
-                    return;
+            let allData = [];
+            let offset = 0;
+            const pageSize = 1000;
+            let keepFetching = true;
+
+            while (keepFetching) {
+                const res = await sbDocFetch('GET', `procura_documents?select=*&is_active=eq.true&order=created_at.desc&limit=${pageSize}&offset=${offset}`);
+                if (res.ok) {
+                    const batch = await res.json();
+                    if (Array.isArray(batch) && batch.length > 0) {
+                        allData = allData.concat(batch);
+                        if (batch.length < pageSize) {
+                            keepFetching = false;
+                        } else {
+                            offset += pageSize;
+                        }
+                    } else {
+                        keepFetching = false;
+                    }
+                } else {
+                    console.warn('[Admin] Supabase procura_documents inaccessible, fallback JSON.');
+                    break;
                 }
-            } else {
-                console.warn('[Admin] Supabase procura_documents inaccessible (table inexistante ?), fallback JSON.');
+            }
+
+            if (allData.length > 0) {
+                // Supabase a des données — on les utilise
+                adminDocCatalog = allData.map(d => ({
+                    id: d.id,
+                    title: d.title,
+                    filename: d.filename,
+                    category: d.category,
+                    path: d.path || '',
+                    chunks: d.chunks || 0,
+                    storage_url: d.storage_url || '',
+                    first_page_preview: d.first_page_preview || ''
+                }));
+                docSourceIsSupabase = true;
+                console.log(`[Admin] Catalogue chargé depuis Supabase (${adminDocCatalog.length} docs)`);
+                populateDocCategoryFilter();
+                const statEl = document.getElementById('statCatalogDocs');
+                if (statEl) statEl.textContent = adminDocCatalog.length;
+                window.renderCategoryBreakdown();
+                window.filterDocCatalog();
+                return;
+            } else if (allData.length === 0 && offset === 0) {
+                // Table vide → seeder depuis JSON
+                console.log('[Admin] Table Supabase vide → Amorçage depuis documents_catalog.json...');
+                await seedDocCatalogToSupabase();
+                return;
             }
         } catch (err) {
             console.warn('[Admin] Erreur Supabase, fallback JSON:', err);
@@ -2131,6 +2225,10 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             console.error('[Admin] Erreur chargement JSON:', err);
             adminDocCatalog = [];
         }
+        populateDocCategoryFilter();
+        const statEl = document.getElementById('statCatalogDocs');
+        if (statEl && adminDocCatalog) statEl.textContent = adminDocCatalog.length;
+        window.renderCategoryBreakdown();
         window.filterDocCatalog();
     };
 
@@ -2566,247 +2664,6 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             }
         }
-    };
-
-    function getDocCategoryBadge(category) {
-        const cat = category || 'Général';
-        const lower = cat.toLowerCase();
-        let cls = 'country';
-
-        if (lower.includes('banque mondiale') || lower.includes('bad') || lower.includes('bid') || lower.includes('afd') || lower.includes('boad') || lower.includes('uemoa')) {
-            cls = 'institution';
-        }
-        else if (lower.includes('emploi') || lower.includes('recrutement')) {
-            cls = 'employment';
-        }
-        else if (lower.includes('carrousel')) {
-            cls = 'institution';
-        }
-        else if (lower.includes('audit') || lower.includes('durable') || lower.includes('autres') || lower.includes('général')) {
-            cls = 'theme';
-        }
-
-        return `<span class="doc-category-tag ${cls}">${escapeHtml(cat)}</span>`;
-    }
-
-    window.renderDocCatalog = function() {
-        const tbody = document.getElementById('docCatalogTbody');
-        const countDisplay = document.getElementById('catalogCountDisplay');
-        const prevBtn = document.getElementById('btnPrevPageDocs');
-        const nextBtn = document.getElementById('btnNextPageDocs');
-        if (!tbody) return;
-
-        const total = filteredDocCatalog.length;
-        const totalPages = Math.ceil(total / DOCS_PAGE_SIZE) || 1;
-        if (currentDocCatalogPage > totalPages) currentDocCatalogPage = totalPages;
-        if (currentDocCatalogPage < 1) currentDocCatalogPage = 1;
-
-        const startIndex = (currentDocCatalogPage - 1) * DOCS_PAGE_SIZE;
-        const endIndex = Math.min(startIndex + DOCS_PAGE_SIZE, total);
-        const pageItems = filteredDocCatalog.slice(startIndex, endIndex);
-
-        if (countDisplay) {
-            countDisplay.innerHTML = `Affichage de <strong>${total > 0 ? startIndex + 1 : 0} à ${endIndex}</strong> sur <strong>${total}</strong> document(s) classé(s) — Page ${currentDocCatalogPage}/${totalPages}`;
-        }
-
-        if (prevBtn) prevBtn.disabled = currentDocCatalogPage <= 1;
-        if (nextBtn) nextBtn.disabled = currentDocCatalogPage >= totalPages;
-
-        if (pageItems.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="5" style="text-align:center; padding:3rem; color:#94a3b8;">
-                        <i data-lucide="search-x" style="width:32px; height:32px; margin-bottom:0.5rem; color:#64748b;"></i>
-                        <div>Aucun document ne correspond à vos critères de recherche.</div>
-                    </td>
-                </tr>
-            `;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-            return;
-        }
-
-        tbody.innerHTML = pageItems.map((doc, idx) => {
-            const globalIndex = startIndex + idx;
-            const badge = getDocCategoryBadge(doc.category);
-            return `
-                <tr class="doc-row-item">
-                    <td style="font-weight:600; color:#f8fafc;">
-                        <div style="display:flex; align-items:center; gap:0.6rem;">
-                            <i data-lucide="file-text" style="width:16px; height:16px; color:var(--color-gold); flex-shrink:0;"></i>
-                            <span title="${escapeHtml(doc.filename)}" style="line-height:1.35;">${escapeHtml(doc.title)}</span>
-                        </div>
-                    </td>
-                    <td>${badge}</td>
-                    <td style="text-align:center;"><span style="font-weight:700; color:var(--color-gold);">${doc.chunks}</span> <small style="color:#64748b;">chunks</small></td>
-                    <td style="text-align:center;"><span style="color:#34d399; font-weight:600; font-size:0.8rem;">● Actif</span></td>
-                    <td style="text-align:right;">
-                        <button class="btn-doc-view" onclick="openDocPreviewModal(${globalIndex})">
-                            <i data-lucide="eye"></i> Consulter
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-    };
-
-    window.prevDocsPage = function() {
-        if (currentDocCatalogPage > 1) {
-            currentDocCatalogPage--;
-            window.renderDocCatalog();
-        }
-    };
-
-    window.nextDocsPage = function() {
-        const totalPages = Math.ceil(filteredDocCatalog.length / DOCS_PAGE_SIZE) || 1;
-        if (currentDocCatalogPage < totalPages) {
-            currentDocCatalogPage++;
-            window.renderDocCatalog();
-        }
-    };
-
-    window.openDocPreviewModal = function(index) {
-        const doc = filteredDocCatalog[index];
-        if (!doc) return;
-
-        const modal = document.getElementById('adminDocModal');
-        if (!modal) return;
-
-        document.getElementById('modalDocTitle').textContent = doc.title;
-        document.getElementById('modalDocCategory').innerHTML = getDocCategoryBadge(doc.category);
-        document.getElementById('modalDocFilename').textContent = doc.filename;
-        document.getElementById('modalDocChunks').textContent = `${doc.chunks} segment(s) indexé(s)`;
-        document.getElementById('modalDocPath').textContent = doc.path || `Corpus officiel / ${doc.category} / ${doc.filename}`;
-        document.getElementById('modalDocPreview').textContent = doc.first_page_preview 
-            ? doc.first_page_preview + '...'
-            : "Contenu textuel indexé avec succès dans les bases vectorielles de PROCURA pour recherche sémantique immédiate.";
-
-        modal.classList.remove('hidden');
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-    };
-
-    window.closeDocPreviewModal = function(e) {
-        if (e && e.target && e.target.id !== 'adminDocModal' && !e.target.closest('.btn-close-admin') && !e.target.closest('.admin-btn-secondary')) {
-            return;
-        }
-        const modal = document.getElementById('adminDocModal');
-        if (modal) modal.classList.add('hidden');
-    };
-
-    window.renderCategoryBreakdown = function() {
-        const grid = document.getElementById('categoryBreakdownGrid');
-        if (!grid) return;
-
-        const categories = [
-            { name: "Sénégal (ARCOP)", count: "123 docs • 4 230 chunks" },
-            { name: "Banque Mondiale (BM 2025)", count: "85 docs • 6 810 chunks" },
-            { name: "Burkina Faso (ARCOP)", count: "53 docs • 2 840 chunks" },
-            { name: "Côte d'Ivoire (ARCOP / CMP)", count: "46 docs • 2 940 chunks" },
-            { name: "Togo (ARCOP)", count: "32 docs • 3 120 chunks" },
-            { name: "BID (Banque Islamique)", count: "32 docs • 1 890 chunks" },
-            { name: "Guinée (ARMP)", count: "22 docs • 1 450 chunks" },
-            { name: "Aide Emploi & Recrutement", count: "21 docs • 1 372 chunks" },
-            { name: "BAD (Banque Africaine)", count: "21 docs • 1 280 chunks" },
-            { name: "AFD (Agence Française)", count: "16 docs • 980 chunks" },
-            { name: "Mali (ARMDS)", count: "16 docs • 1 120 chunks" },
-            { name: "Cameroun (ARMP)", count: "15 docs • 940 chunks" },
-            { name: "RDC (Congo-Kinshasa)", count: "15 docs • 890 chunks" },
-            { name: "Bénin (ARMP / CMP)", count: "14 docs • 5 240 chunks" },
-            { name: "Congo (ARMP)", count: "11 docs • 640 chunks" },
-            { name: "Gabon, Niger, Centrafrique, Tchad, BOAD, UEMOA", count: "17 docs • 1 200 chunks" }
-        ];
-
-        grid.innerHTML = categories.map(cat => `
-            <div class="cat-breakdown-card">
-                <span class="cat-name">${cat.name}</span>
-                <span class="cat-count" style="font-size:0.95rem;">${cat.count}</span>
-            </div>
-        `).join('');
-    };
-
-    window.handleAdminFileSelected = function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        selectedAdminFile = file;
-
-        const nameDisplay = document.getElementById('fileNameDisplay');
-        const previewBox = document.getElementById('filePreviewBox');
-        const dropzoneContent = document.getElementById('dropzoneContent');
-        const docTitleInput = document.getElementById('docTitleInput');
-
-        if (nameDisplay) nameDisplay.textContent = file.name + ` (${(file.size / 1024 / 1024).toFixed(2)} Mo)`;
-        if (docTitleInput && !docTitleInput.value) {
-            docTitleInput.value = file.name.replace(/\.[^/.]+$/, "");
-        }
-        if (previewBox) previewBox.classList.remove('hidden');
-        if (dropzoneContent) dropzoneContent.classList.add('hidden');
-    };
-
-    window.clearSelectedAdminFile = function(e) {
-        if (e) e.stopPropagation();
-        selectedAdminFile = null;
-        const fileInput = document.getElementById('adminFileInput');
-        if (fileInput) fileInput.value = '';
-
-        const previewBox = document.getElementById('filePreviewBox');
-        const dropzoneContent = document.getElementById('dropzoneContent');
-
-        if (previewBox) previewBox.classList.add('hidden');
-        if (dropzoneContent) dropzoneContent.classList.remove('hidden');
-    };
-
-    window.processAdminDocUpload = function() {
-        const category = document.getElementById('docCategorySelect').value;
-        const title = document.getElementById('docTitleInput').value.trim();
-
-        if (!title) {
-            alert("Veuillez saisir un titre officiel pour le document.");
-            return;
-        }
-
-        if (!selectedAdminFile) {
-            alert("Veuillez sélectionner un fichier PDF ou DOCX.");
-            return;
-        }
-
-        const btn = document.getElementById('btnUploadDoc');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = `<i data-lucide="loader-2" class="spin"></i> Traitement et Indexation en cours...`;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-        }
-
-        setTimeout(() => {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = `<i data-lucide="check-circle"></i> Enregistrer et Indexer le Document`;
-            }
-
-            const alertEl = document.getElementById('docUploadSuccess');
-            if (alertEl) {
-                alertEl.textContent = `Le document "${title}" a été téléversé et indexé avec succès dans la catégorie [${category}] ! Il est désormais immédiatement accessible par PROCURA.`;
-                alertEl.classList.remove('hidden');
-                setTimeout(() => alertEl.classList.add('hidden'), 6000);
-            }
-
-            // Add dynamically to current session catalog
-            if (adminDocCatalog) {
-                adminDocCatalog.unshift({
-                    title: title,
-                    filename: selectedAdminFile.name,
-                    category: category,
-                    path: `Upload Récent / ${category} / ${selectedAdminFile.name}`,
-                    chunks: Math.floor(Math.random() * 20) + 5,
-                    first_page_preview: `Document ${title} indexé récemment par l'administrateur.`
-                });
-                window.filterDocCatalog();
-            }
-
-            clearSelectedAdminFile();
-            document.getElementById('docTitleInput').value = '';
-            renderCategoryBreakdown();
-        }, 1500);
     };
 
     // ── GESTION DES UTILISATEURS & ABONNEMENTS (ADMIN) ────────────────────────
