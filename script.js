@@ -270,7 +270,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20260903_v38');
+            searchWorker = new Worker('searchWorker.js?v=20260903_v39');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') searchWorkerReady = true;
@@ -1555,6 +1555,8 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
 
     // ── Markdown → HTML renderer ───────────────────────────────
     function renderMarkdown(text) {
+        if (!text) return '';
+
         // Escape HTML entities first
         let html = text
             .replace(/&/g, '&amp;')
@@ -1568,25 +1570,33 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             .replace(/^## (.+)$/gm, '<h2>$1</h2>')
             .replace(/^# (.+)$/gm, '<h1>$1</h1>');
 
-        // Bold & italic
+        // Bold: **text**
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+        // Lists: ordered (1. item)
+        html = html.replace(/^\d+\.\s+(.+)$/gm, '<li class="ol-item">$1</li>');
+
+        // Lists: unordered (* item, - item, • item)
+        html = html.replace(/^[\*\-•]\s+(.+)$/gm, '<li>$1</li>');
+
+        // Italic: *text* or _text_
         html = html
-            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.+?)\*/g, '<em>$1</em>');
+            .replace(/\*([^\*\n]+?)\*/g, '<em>$1</em>')
+            .replace(/_([^_\n]+?)_/g, '<em>$1</em>');
 
         // Blockquote (lines starting with >)
-        html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
-
-        // Lists: ordered
-        html = html.replace(/^\d+\.\s+(.+)$/gm, '<li class="ol-item">$1</li>');
-        // Lists: unordered
-        html = html.replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>');
-        // Wrap consecutive <li> in <ul>
-        html = html.replace(/(<li[^>]*>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
+        html = html.replace(/^&gt;\s*(.+)$/gm, '<blockquote>$1</blockquote>');
 
         // Horizontal rule
         html = html.replace(/^---$/gm, '<hr>');
 
-        // Paragraphs
+        // Wrap consecutive <li> in <ul>
+        html = html.replace(/(<li[^>]*>.*?<\/li>(\n|<br>)?)+/g, m => `<ul>${m.replace(/<br>/g, '')}</ul>`);
+
+        // Clean any remaining raw stray asterisks
+        html = html.replace(/\*/g, '');
+
+        // Paragraphs & line breaks
         html = html
             .replace(/\n\n/g, '</p><p>')
             .replace(/\n/g, '<br>');
