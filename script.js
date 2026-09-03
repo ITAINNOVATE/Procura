@@ -270,7 +270,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20260903_v43');
+            searchWorker = new Worker('searchWorker.js?v=20260903_v44');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') searchWorkerReady = true;
@@ -473,7 +473,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
 
             if (error && error.code === 'PGRST116') {
                 const chosenPlan = selectedPlan || 'free';
-                const chosenProfile = selectedProfile || 'agent';
+                const chosenProfile = ['administration', 'collectivite', 'agent'].includes((selectedProfile || '').toLowerCase()) ? 'agent' : 'operateur';
 
                 const { data: newProfile, error: insertError } = await supabase
                     .from('profiles')
@@ -1013,9 +1013,9 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         }
 
         // Mappage de la valeur du profil pour satisfaire la contrainte CHECK (profiles_profile_type_check)
-        // La base de données n'autorise que 'agent' ou 'operateur'.
-        const agentTypes = ['administration', 'collectivite'];
-        const dbProfileType = agentTypes.includes(profileType) ? 'agent' : 'operateur';
+        // La base de données PostgreSQL n'autorise que 'agent' ou 'operateur'.
+        const agentTypes = ['administration', 'collectivite', 'agent', 'public', 'agent_public'];
+        const dbProfileType = agentTypes.includes((profileType || '').toLowerCase()) ? 'agent' : 'operateur';
         
         if (supabase) {
             try {
@@ -1024,24 +1024,24 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                     method: 'POST',
                     headers: {
                         'content-type': 'application/json',
-                        'x-sb-key': SUPABASE_ANON_KEY
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
                     },
                     credentials: 'omit',
                     body: JSON.stringify({
                         email: email,
                         password: password,
-                        options: {
-                            data: {
-                                first_name: firstName,
-                                last_name: lastName,
-                                phone: phone,
-                                country: country,
-                                profile_type: dbProfileType,
-                                detailed_profile: profileType,
-                                company_name: companyName,
-                                job_title: jobTitle,
-                                plan: selectedPlan || 'free'
-                            }
+                        data: {
+                            first_name: firstName,
+                            last_name: lastName,
+                            full_name: `${firstName} ${lastName}`.trim(),
+                            phone: phone,
+                            country: country,
+                            profile_type: dbProfileType,
+                            detailed_profile: profileType,
+                            company_name: companyName,
+                            job_title: jobTitle,
+                            plan: selectedPlan || 'free'
                         }
                     })
                 });
