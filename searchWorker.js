@@ -295,7 +295,7 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 1
 
     if (results.length > 0) {
         results.forEach((chunk, index) => {
-            contextMarkdown += `--- SOURCE ${index + 1} : ${chunk.title} [Catégorie: ${chunk.category}] (Fichier: ${chunk.source}) ---\n`;
+            contextMarkdown += `--- DOCUMENT ${index + 1} : ${chunk.title} [Catégorie: ${chunk.category}] ---\n`;
             contextMarkdown += `${chunk.content}\n\n`;
         });
     } else {
