@@ -270,7 +270,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20260903_v41');
+            searchWorker = new Worker('searchWorker.js?v=20260903_v42');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') searchWorkerReady = true;
@@ -1471,7 +1471,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         messageDiv.appendChild(content);
         chatHistory.appendChild(messageDiv);
         lucide.createIcons({ root: messageDiv });
-        chatHistory.scrollTop = chatHistory.scrollHeight;
+        messageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     // Message d'invitation à choisir un plan après la question gratuite
@@ -1497,7 +1497,6 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         messageDiv.appendChild(content);
         chatHistory.appendChild(messageDiv);
         lucide.createIcons({ root: messageDiv });
-        chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
     function addMessage(text, sender) {
@@ -1543,7 +1542,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             messageDiv.appendChild(avatar);
             chatHistory.appendChild(messageDiv);
             lucide.createIcons({ root: messageDiv });
-            chatHistory.scrollTop = chatHistory.scrollHeight;
+            messageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
             messageDiv.appendChild(avatar);
             messageDiv.appendChild(content);
@@ -1785,7 +1784,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                 role: 'model',
                 parts: [{ text: fullText }]
             });
-            chatInput.focus();
+            chatInput.focus({ preventScroll: true });
 
         } catch (err) {
             console.error('PROCURA AI error:', err);
@@ -1839,7 +1838,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         const indicator = document.getElementById('typingIndicator');
         if (indicator) indicator.remove();
         addMessage(text, 'bot');
-        chatInput.focus();
+        chatInput.focus({ preventScroll: true });
     }
 
     // ── Fallback offline (sans clé API) ───────────────────────
