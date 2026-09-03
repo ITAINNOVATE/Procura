@@ -3,6 +3,7 @@ import sys
 import json
 import re
 import traceback
+import pymupdf
 from pypdf import PdfReader
 from docx import Document
 
@@ -96,7 +97,7 @@ def get_category(root_path):
                 return "Aide Emploi et Recrutement"
             elif "THEMATIQUES" in fn_upper or "THÉMATIQUES" in fn_upper:
                 return "Thématiques"
-            elif "CAROUSSELS" in fn_upper or "CAROUS" in fn_upper:
+            elif "CARROUSEL" in fn_upper or "CAROUSEL" in fn_upper or "CAROUSSEL" in fn_upper or "CAROUS" in fn_upper:
                 return "Carrousels Pédagogiques"
             elif "AUDIT" in fn_upper and "CONTROLE" in fn_upper:
                 return "Audit et Contrôle des Finances Publiques"
@@ -107,8 +108,25 @@ def get_category(root_path):
     return "Général"
 
 def extract_pdf_text(file_path):
-    """Extract page-by-page text from a PDF."""
+    """Extract page-by-page text from a PDF using PyMuPDF with pypdf fallback."""
     pages = []
+    # 1. Primary: PyMuPDF
+    try:
+        doc = pymupdf.open(file_path)
+        for i, page in enumerate(doc):
+            try:
+                text = page.get_text() or ""
+                cleaned = clean_text(text)
+                if cleaned:
+                    pages.append((i + 1, cleaned))
+            except Exception:
+                continue
+        if pages:
+            return pages
+    except Exception as e:
+        pass
+
+    # 2. Fallback: pypdf
     try:
         reader = PdfReader(file_path, strict=False)
         for i, page in enumerate(reader.pages):
