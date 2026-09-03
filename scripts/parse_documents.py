@@ -95,8 +95,10 @@ def get_category(root_path):
                 return "UEMOA"
             elif "AIDE EMPLOI" in fn_upper or "EMPLOI" in fn_upper:
                 return "Aide Emploi et Recrutement"
-            elif "THEMATIQUES" in fn_upper or "THÉMATIQUES" in fn_upper:
-                return "Thématiques"
+            elif "THEMATIQUE" in fn_upper or "THÉMATIQUE" in fn_upper:
+                return "Thématiques & Études"
+            elif "CERTIFICATION" in fn_upper or "RECHERCHE" in fn_upper:
+                return "Certifications & Recherches"
             elif "CARROUSEL" in fn_upper or "CAROUSEL" in fn_upper or "CAROUSSEL" in fn_upper or "CAROUS" in fn_upper:
                 return "Carrousels Pédagogiques"
             elif "AUDIT" in fn_upper and "CONTROLE" in fn_upper:

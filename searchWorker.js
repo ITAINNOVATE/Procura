@@ -28,7 +28,7 @@ const normalize = (str, keepStopWords = false) => {
     return tokens.filter(w => !STOP_WORDS.has(w) && w.length > 2);
 };
 
-const CACHE_NAME = 'procura-kb-v5';
+const CACHE_NAME = 'procura-kb-v6';
 
 // Fonction de chargement avec mise en cache ultra-rapide (Cache API)
 async function fetchPartWithCache(partNum) {

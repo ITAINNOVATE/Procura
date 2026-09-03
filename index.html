@@ -977,6 +977,8 @@
                                         <option value="UEMOA">UEMOA</option>
                                         <option value="Aide Emploi et Recrutement">Aide Emploi et Recrutement (CV & Entretiens)</option>
                                         <option value="Carrousels Pédagogiques">Carrousels Pédagogiques (Bass Consulting)</option>
+                                        <option value="Certifications & Recherches">Certifications & Recherches (Thèses & Mémoires)</option>
+                                        <option value="Thématiques & Études">Thématiques & Études Spécialisées</option>
                                         <option value="Audit et Contrôle des Finances Publiques">Audit & Contrôle (Normes INTOSAI)</option>
                                         <option value="Marchés Durables">Marchés Durables & RSE</option>
                                         <option value="Autres Documents">Autres Documents / Synthèses</option>
@@ -1018,7 +1020,7 @@
                                 <input type="text" id="docSearchInput" placeholder="Rechercher par titre, mot-clé, loi, décret, carrousel..." oninput="filterDocCatalog()">
                             </div>
                             <select id="docCategoryFilter" onchange="filterDocCatalog()" class="admin-select" style="flex:1;">
-                                <option value="">Tous les répertoires (1 206 documents)</option>
+                                <option value="">Tous les répertoires (1 218 documents)</option>
                                 <optgroup label="── PAYS D'AFRIQUE ──">
                                     <option value="Bénin">Bénin (30)</option>
                                     <option value="Burkina Faso">Burkina Faso (90)</option>
@@ -1044,13 +1046,14 @@
                                     <option value="BID">BID (IsDB) (2)</option>
                                     <option value="UEMOA">UEMOA (7)</option>
                                 </optgroup>
-                                <optgroup label="── THÉMATIQUES & EMPLOI ──">
+                                <optgroup label="── THÉMATIQUES & DOCTRINE ──">
+                                    <option value="Carrousels">Carrousels Pédagogiques (90)</option>
+                                    <option value="Certifications">Certifications & Recherches (8)</option>
+                                    <option value="Thématiques">Thématiques & Études (4)</option>
                                     <option value="Aide Emploi">Aide Emploi & Recrutement (21)</option>
-                                    <option value="Carrousels">Carrousels Pédagogiques</option>
                                     <option value="Audit">Audit & Finances Publiques (5)</option>
                                     <option value="Marchés Durables">Marchés Durables (3)</option>
                                     <option value="Autres">Autres Textes & Synthèses (37)</option>
-                                    <option value="Général">Général (90)</option>
                                 </optgroup>
                             </select>
                         </div>
@@ -1310,6 +1313,6 @@
     </div>
 
     <script src="/api/app-config.js"></script>
-    <script src="script.js?v=20260903_v40"></script>
+    <script src="script.js?v=20260903_v41"></script>
 </body>
 </html>
