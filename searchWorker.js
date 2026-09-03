@@ -28,7 +28,7 @@ const normalize = (str, keepStopWords = false) => {
     return tokens.filter(w => !STOP_WORDS.has(w) && w.length > 2);
 };
 
-const CACHE_NAME = 'procura-kb-v4';
+const CACHE_NAME = 'procura-kb-v5';
 
 // Fonction de chargement avec mise en cache ultra-rapide (Cache API)
 async function fetchPartWithCache(partNum) {
@@ -274,11 +274,7 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 1
         return { chunk: item.chunk, score };
     });
 
-    // Seuil de score minimal : plus strict si un acronyme demandé est absent de la base
-    let minScore = 15;
-    if (missingSpecificTokens.length > 0) {
-        minScore = 200; // Bloquer les faux positifs génériques sur "marchés publics" si l'acronyme précis n'existe pas
-    }
+    const minScore = 15;
 
     const results = scoredChunks
         .filter(r => r.score >= minScore)
@@ -287,19 +283,13 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 1
         .map(r => r.chunk);
 
     // 4. Formater le contexte transmis à l'IA
-    let contextMarkdown = "\n\n<context>\nVoici des informations et règles issues des documents officiels. Utilise-les pour répondre avec précision :\n\n";
-
-    if (missingSpecificTokens.length > 0) {
-        contextMarkdown += `⚠️ REMARQUE IMPORTANTE : Le(s) terme(s) ou sigle(s) [${missingSpecificTokens.join(', ')}] ne figure(nt) pas dans les documents officiels de la base documentaire. Si la question concerne la gestion des marchés publics, précise que le sigle officiel de la gestion informatique des marchés publics est généralement le SIGMAP (Système d'Information et de Gestion des Marchés Publics).\n\n`;
-    }
+    let contextMarkdown = "\n\n<context>\nVoici des extraits documentaires et carrousels pertinents issus de la base officielle :\n\n";
 
     if (results.length > 0) {
         results.forEach((chunk, index) => {
             contextMarkdown += `--- DOCUMENT ${index + 1} : ${chunk.title} [Catégorie: ${chunk.category}] ---\n`;
             contextMarkdown += `${chunk.content}\n\n`;
         });
-    } else {
-        contextMarkdown += "Aucun document directement pertinent n'a été trouvé dans la base documentaire pour cette requête spécifique.\n\n";
     }
 
     contextMarkdown += "</context>";

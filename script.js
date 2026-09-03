@@ -270,7 +270,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20260903_v39');
+            searchWorker = new Worker('searchWorker.js?v=20260903_v40');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') searchWorkerReady = true;
@@ -1658,12 +1658,13 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
 4. Cite les sources applicables (lois, décrets, directives de bailleurs ou carrousels pédagogiques Bass Consulting).
 5. Propose des recommandations pratiques concrètes signées Bass Consulting.`;
         }
-        // Cas 3 : Aucun document trouvé
+        // Cas 3 : Contexte documentaire général
         else {
-            dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION DE RIGUEUR — AUCUN DOCUMENT TROUVÉ DANS LA BASE :
-Aucun texte officiel ou carrousel n'a été extrait pour cette requête précise.
-Règle absolue : N'INVENTE AUCUNE RÈGLE ni procédure et n'extrapole pas à partir d'autres pays.
-Indique avec courtoisie et professionnalisme que ce point précis n'est pas répertorié dans la base documentaire actuelle de PROCURA, et oriente vers le portail officiel de l'organe de régulation compétent pour une totale sécurité juridique.`;
+            dynamicSystemPrompt += `\n\n🎯 DIRECTIVES DE RÉPONSE EXPERTE :
+1. Réponds avec rigueur, pédagogie et clarté en mobilisant tes compétences expertes en commande publique, droit des marchés publics et doctrine de Bass Consulting.
+2. Définis clairement les sigles, notions, procédures ou comparaisons demandées. Si un sigle a un sens sectoriel particulier (santé, infrastructures, informatique), explicite-le et mets-le en perspective avec les systèmes généraux de passation (SIGMAP, STEP, e-Procurement).
+3. Reste parfaitement dans le cadre de la question posée (zéro hors-sujet).
+4. Fournis des recommandations pratiques concrètes signées Bass Consulting.`;
         }
 
         const isVercel = !isLocalhost;
