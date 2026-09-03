@@ -28,7 +28,7 @@ const normalize = (str, keepStopWords = false) => {
     return tokens.filter(w => !STOP_WORDS.has(w) && w.length > 2);
 };
 
-const CACHE_NAME = 'procura-kb-v3';
+const CACHE_NAME = 'procura-kb-v4';
 
 // Fonction de chargement avec mise en cache ultra-rapide (Cache API)
 async function fetchPartWithCache(partNum) {
@@ -100,7 +100,7 @@ async function loadKnowledgeBase() {
 }
 
 // Fonction de recherche améliorée (BM25 + RAG hybride + Filtrage intelligent)
-function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6) {
+function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 10) {
     if (!isLoaded || !query) return "";
 
     const queryWords = normalize(query);
@@ -171,24 +171,32 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6
             // Title match
             let titleMatches = 0;
             item.titleNorm.forEach(w => {
-                if (w === word) titleMatches += 30;
-                else if (w.includes(word) || word.includes(w)) titleMatches += 10;
+                if (w === word) titleMatches += 40;
+                else if (w.includes(word) || word.includes(w)) titleMatches += 15;
             });
-            score += Math.min(titleMatches, 90);
+            score += Math.min(titleMatches, 120);
 
             // Content match
             let contentMatches = 0;
             item.contentNorm.forEach(w => {
-                if (w === word) contentMatches += 3;
+                if (w === word) contentMatches += 4;
                 else if (w.includes(word)) contentMatches += 1;
             });
-            score += Math.min(contentMatches, 40);
+            score += Math.min(contentMatches, 50);
         });
+
+        // Multi-word title match boost (e.g. "addendum" and "avenant" both in title)
+        const titleMatchCount = queryWords.filter(w => item.titleRawLower.includes(w)).length;
+        if (titleMatchCount >= 2) {
+            score += titleMatchCount * 150;
+        } else if (titleMatchCount === 1 && queryWords.length <= 3) {
+            score += 100;
+        }
 
         // Exact query substring match bonus
         const queryRawNorm = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         if (item.contentRawLower.includes(queryRawNorm)) {
-            score += 120;
+            score += 150;
         }
 
         // Boost chronologique pour les révisions / éditions récentes (ex: 2025 vs 2023 vs 2018)
@@ -231,9 +239,9 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6
                 item.titleRawLower.includes(w) || item.contentRawLower.includes(w)
             );
             if (carrouselRelevant) {
-                score += 50;
+                score += 150;
                 if (isDefinitionQuery) {
-                    score += 120;
+                    score += 250;
                 }
             } else if (isOffTopicCarrousel) {
                 // Pénaliser les carrousels hors-sujet (CV, emploi) si la question n'est pas sur l'emploi

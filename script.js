@@ -270,7 +270,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20260903_v36');
+            searchWorker = new Worker('searchWorker.js?v=20260903_v37');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') searchWorkerReady = true;
@@ -1641,12 +1641,12 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         // Cas 2 : Contexte documentaire trouvé
         else if (retrievedContext) {
             dynamicSystemPrompt += `\n\n${retrievedContext}`;
-            dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION CRUCIALE DE JUSTESSE & DE CADRAGE :
-1. Prends le temps d'analyser en profondeur la question de l'utilisateur pour en cerner le périmètre exact (pays, bailleur, étape de la procédure, article visé).
-2. Reste STRICTEMENT DANS LE CADRE de la question posée : zéro hors-sujet, zéro extrapolation, zéro bavardage superflu.
-3. Formule ta réponse UNIQUEMENT et RIGUREUSEMENT à partir du bloc <context> ci-dessus.
-4. Cite précisément les textes de référence (nom de la loi, numéro d'article, décret, directive ou carrousel pédagogique Bass Consulting).
-5. Rédige une réponse structurée, concise, exacte et directement exploitable par le professionnel.`;
+            dynamicSystemPrompt += `\n\n🎯 DIRECTIVES DE RÉPONSE EXPERTE :
+1. Analyse la question et utilise les extraits documentaires et carrousels ci-dessus comme base de référence prioritaire.
+2. Développe une réponse complète, claire, pédagogique et directement opérationnelle pour le professionnel.
+3. Reste parfaitement dans le cadre de la question posée (zéro hors-sujet).
+4. Cite les sources applicables (lois, décrets, directives de bailleurs ou carrousels pédagogiques Bass Consulting).
+5. Propose des recommandations pratiques concrètes signées Bass Consulting.`;
         }
         // Cas 3 : Aucun document trouvé
         else {
