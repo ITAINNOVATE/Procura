@@ -270,7 +270,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20260903_v44');
+            searchWorker = new Worker('searchWorker.js?v=20260904_v45');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') searchWorkerReady = true;
@@ -2206,8 +2206,11 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                 docSourceIsSupabase = true;
                 console.log(`[Admin] Catalogue chargé depuis Supabase (${adminDocCatalog.length} docs)`);
                 populateDocCategoryFilter();
+                const countFormatted = adminDocCatalog.length.toLocaleString('fr-FR');
                 const statEl = document.getElementById('statCatalogDocs');
-                if (statEl) statEl.textContent = adminDocCatalog.length;
+                if (statEl) statEl.textContent = countFormatted;
+                const subCountEl = document.getElementById('docSubtitleCount');
+                if (subCountEl) subCountEl.textContent = countFormatted;
                 window.renderCategoryBreakdown();
                 window.filterDocCatalog();
                 return;
@@ -2236,8 +2239,11 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             adminDocCatalog = [];
         }
         populateDocCategoryFilter();
+        const countFormatted = adminDocCatalog.length.toLocaleString('fr-FR');
         const statEl = document.getElementById('statCatalogDocs');
-        if (statEl && adminDocCatalog) statEl.textContent = adminDocCatalog.length;
+        if (statEl) statEl.textContent = countFormatted;
+        const subCountEl = document.getElementById('docSubtitleCount');
+        if (subCountEl) subCountEl.textContent = countFormatted;
         window.renderCategoryBreakdown();
         window.filterDocCatalog();
     };
@@ -2514,9 +2520,13 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                 if (masterIdx !== -1) adminDocCatalog.splice(masterIdx, 1);
             }
             // Mettre à jour le compteur
-            document.getElementById('statCatalogDocs').textContent = adminDocCatalog ? adminDocCatalog.length : '';
+            const countFormatted = adminDocCatalog ? adminDocCatalog.length.toLocaleString('fr-FR') : '';
+            const statEl = document.getElementById('statCatalogDocs');
+            if (statEl) statEl.textContent = countFormatted;
+            const subCountEl = document.getElementById('docSubtitleCount');
+            if (subCountEl) subCountEl.textContent = countFormatted;
             const opt0 = document.querySelector('#docCategoryFilter option[value=""]');
-            if (opt0 && adminDocCatalog) opt0.textContent = `Tous les répertoires (${adminDocCatalog.length} documents)`;
+            if (opt0 && adminDocCatalog) opt0.textContent = `Tous les répertoires (${countFormatted} documents)`;
 
             document.getElementById('adminDeleteDocModal').classList.add('hidden');
             window.renderDocCatalog();
@@ -2649,9 +2659,13 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             }
 
             // Mettre à jour compteurs
-            document.getElementById('statCatalogDocs').textContent = adminDocCatalog ? adminDocCatalog.length : '';
+            const countFormatted = adminDocCatalog ? adminDocCatalog.length.toLocaleString('fr-FR') : '';
+            const statEl = document.getElementById('statCatalogDocs');
+            if (statEl) statEl.textContent = countFormatted;
+            const subCountEl = document.getElementById('docSubtitleCount');
+            if (subCountEl) subCountEl.textContent = countFormatted;
             const opt0 = document.querySelector('#docCategoryFilter option[value=""]');
-            if (opt0 && adminDocCatalog) opt0.textContent = `Tous les répertoires (${adminDocCatalog.length} documents)`;
+            if (opt0 && adminDocCatalog) opt0.textContent = `Tous les répertoires (${countFormatted} documents)`;
 
             clearSelectedAdminFile();
             document.getElementById('docTitleInput').value = '';

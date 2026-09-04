@@ -907,7 +907,7 @@
                         <div class="tab-header-row">
                             <div>
                                 <h2 class="admin-section-title">Répertoire & Explorateur de la Base Documentaire</h2>
-                                <p class="admin-section-subtitle">Accédez à l'intégralité des 673 textes officiels, décrets, directives de bailleurs et guides indexés dans PROCURA.</p>
+                                <p class="admin-section-subtitle">Accédez à l'intégralité des <span id="docSubtitleCount">1 218</span> textes officiels, décrets, directives de bailleurs et guides indexés dans PROCURA.</p>
                             </div>
                             <button class="admin-btn-gold" onclick="toggleUploadDocSection()">
                                 <i data-lucide="plus-circle"></i> Ajouter un Document
@@ -919,22 +919,22 @@
                             <div class="admin-stat-card">
                                 <div class="stat-icon-box gold"><i data-lucide="folder-check"></i></div>
                                 <div class="stat-data">
-                                    <span class="stat-value" id="statCatalogDocs">673</span>
+                                    <span class="stat-value" id="statCatalogDocs">1 218</span>
                                     <span class="stat-label">Documents Officiels Indexés</span>
                                 </div>
                             </div>
                             <div class="admin-stat-card">
                                 <div class="stat-icon-box blue"><i data-lucide="layers"></i></div>
                                 <div class="stat-data">
-                                    <span class="stat-value">32 339</span>
+                                    <span class="stat-value" id="statCatalogChunks">52 447</span>
                                     <span class="stat-label">Fragments (Chunks RAG)</span>
                                 </div>
                             </div>
                             <div class="admin-stat-card">
                                 <div class="stat-icon-box green"><i data-lucide="globe"></i></div>
                                 <div class="stat-data">
-                                    <span class="stat-value">15 Pays + 6 Bailleurs</span>
-                                    <span class="stat-label">Couverture Géographique & IFI</span>
+                                    <span class="stat-value" id="statCatalogCoverage">15 Pays + 6 Bailleurs + Doctrine</span>
+                                    <span class="stat-label">27 Répertoires Couverts</span>
                                 </div>
                             </div>
                         </div>
@@ -1308,6 +1308,6 @@
     </div>
 
     <script src="/api/app-config.js"></script>
-    <script src="script.js?v=20260903_v44"></script>
+    <script src="script.js?v=20260904_v45"></script>
 </body>
 </html>
