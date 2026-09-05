@@ -13,6 +13,12 @@ try:
 except ImportError:
     HAS_OPENPYXL = False
 
+try:
+    import winocr
+    HAS_WINOCR = True
+except ImportError:
+    HAS_WINOCR = False
+
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
@@ -110,9 +116,9 @@ def get_category(root_path):
     return "Général"
 
 def extract_pdf_text(file_path):
-    """Extract page-by-page text from a PDF using PyMuPDF with pypdf fallback."""
+    """Extract page-by-page text from a PDF using PyMuPDF, with pypdf and native Windows OCR fallback."""
     pages = []
-    # 1. Primary: PyMuPDF
+    # 1. Primary: PyMuPDF digital text layer
     try:
         doc = pymupdf.open(file_path)
         for i, page in enumerate(doc):
@@ -123,9 +129,9 @@ def extract_pdf_text(file_path):
                     pages.append((i + 1, cleaned))
             except Exception:
                 continue
-        if pages:
+        if pages and sum(len(p[1]) for p in pages) > 80:
             return pages
-    except Exception as e:
+    except Exception:
         pass
 
     # 2. Fallback: pypdf
@@ -139,8 +145,32 @@ def extract_pdf_text(file_path):
                     pages.append((i + 1, cleaned))
             except Exception:
                 continue
-    except Exception as e:
-        print(f"Error reading PDF {file_path}: {e}")
+        if pages and sum(len(p[1]) for p in pages) > 80:
+            return pages
+    except Exception:
+        pass
+
+    # 3. Fallback: Windows Media OCR for Scanned PDFs (Images / Photocopies)
+    if HAS_WINOCR:
+        try:
+            doc = pymupdf.open(file_path)
+            ocr_pages = []
+            for i, page in enumerate(doc):
+                try:
+                    pix = page.get_pixmap(dpi=120)
+                    pil_img = pix.pil_image()
+                    res = winocr.recognize_pil_sync(pil_img, lang='fr-FR')
+                    ocr_text = clean_text(res.get('text', ''))
+                    if ocr_text:
+                        ocr_pages.append((i + 1, ocr_text))
+                except Exception:
+                    continue
+            if ocr_pages:
+                print(f"  [OCR] ✅ {len(ocr_pages)} pages extraites par reconnaissance optique (OCR) pour {os.path.basename(file_path)}")
+                return ocr_pages
+        except Exception as ocr_err:
+            print(f"  [OCR] Erreur OCR sur {file_path}: {ocr_err}")
+
     return pages
 
 def extract_docx_text(file_path):
