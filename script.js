@@ -278,7 +278,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20260905_v48');
+            searchWorker = new Worker('searchWorker.js?v=20260905_v49');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') {

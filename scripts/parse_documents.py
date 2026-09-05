@@ -202,6 +202,7 @@ def main():
     processed_files = {}  # filename -> catalog item
     file_counter = 0
 
+    # Scanner les répertoires principaux
     for DOCS_DIR in DOCS_DIRS:
         if not os.path.exists(DOCS_DIR):
             print(f"Répertoire {DOCS_DIR} introuvable, ignoré.")
@@ -344,6 +345,82 @@ def main():
                 processed_files[file] = catalog_entry
                 knowledge_base.extend(file_chunks)
                 file_counter += 1
+
+    # ── Scanner également les documents déposés à la racine du projet ──
+    print(f"\n📂 Analyse des documents à la racine du projet...")
+    for file in os.listdir("."):
+        if not os.path.isfile(file):
+            continue
+        ext = os.path.splitext(file)[1].lower()
+        if ext not in [".pdf", ".docx", ".doc", ".rtf", ".xlsx", ".xls"]:
+            continue
+        if file.startswith("~$") or file.startswith("._") or file in processed_files:
+            continue
+
+        file_path = file
+        category = "Autres Documents"
+        f_upper = file.upper()
+        if "COMMERCIAL" in f_upper or "EMPLOI" in f_upper:
+            category = "Aide Emploi et Recrutement"
+        elif "SITE" in f_upper or "WEB" in f_upper:
+            category = "Général"
+        elif "CATALOGUE" in f_upper:
+            category = "Général"
+
+        title = file.replace("_", " ").replace("-", " ").rsplit(".", 1)[0].strip()
+        catalog_entry = {
+            "filename": file,
+            "title": title,
+            "category": category,
+            "path": file_path.replace("\\", "/"),
+            "chunks": 0,
+            "first_page_preview": ""
+        }
+        file_chunks = []
+
+        try:
+            if ext == ".pdf":
+                pages = extract_pdf_text(file_path)
+                for page_num, page_text in pages:
+                    chunks = get_chunks(page_text)
+                    for idx, chunk in enumerate(chunks):
+                        file_chunks.append({
+                            "id": f"chunk_{chunk_counter}",
+                            "source": file,
+                            "path": file_path.replace("\\", "/"),
+                            "category": category,
+                            "title": f"{file} - Page {page_num}" if len(chunks) == 1 else f"{file} - Page {page_num} (Partie {idx + 1})",
+                            "content": chunk
+                        })
+                        chunk_counter += 1
+                if pages:
+                    catalog_entry["first_page_preview"] = pages[0][1][:300]
+            elif ext == ".docx":
+                full_text = extract_docx_text(file_path)
+                cleaned = clean_text(full_text)
+                if cleaned:
+                    chunks = get_chunks(cleaned)
+                    for idx, chunk in enumerate(chunks):
+                        file_chunks.append({
+                            "id": f"chunk_{chunk_counter}",
+                            "source": file,
+                            "path": file_path.replace("\\", "/"),
+                            "category": category,
+                            "title": f"{file} - Partie {idx + 1}",
+                            "content": chunk
+                        })
+                        chunk_counter += 1
+                    catalog_entry["first_page_preview"] = cleaned[:300]
+        except Exception as e:
+            print(f"⚠️ Erreur lors du traitement de {file}: {e}")
+
+        catalog_entry["chunks"] = len(file_chunks)
+        if not catalog_entry["first_page_preview"]:
+            catalog_entry["first_page_preview"] = f"Document {title}"
+
+        processed_files[file] = catalog_entry
+        knowledge_base.extend(file_chunks)
+        file_counter += 1
 
     # ── Sauvegarde de la base de connaissances (Knowledge Base Chunks) ──
     PART_CHUNK_SIZE = 8000
