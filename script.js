@@ -20,11 +20,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         },
         setItem(key, value) {
+            const valStr = (typeof value === 'object' && value !== null) ? JSON.stringify(value) : String(value);
             try {
-                localStorage.setItem(key, value);
+                localStorage.setItem(key, valStr);
             } catch (e) {
                 console.warn(`[Storage] Failed to write ${key}:`, e);
-                this.store[key] = String(value);
+                this.store[key] = valStr;
             }
         },
         removeItem(key) {
@@ -278,7 +279,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20260905_v49');
+            searchWorker = new Worker('searchWorker.js?v=20260905_v50');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') {
@@ -3094,11 +3095,22 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         try {
             // 1. Charger depuis le stockage local personnalisé s'il existe
             const localWebsites = safeStorage.getItem('procura_custom_websites');
-            if (localWebsites) {
-                adminWebsitesList = JSON.parse(localWebsites);
+            let parsed = null;
+            if (localWebsites && localWebsites !== 'undefined' && localWebsites !== 'null') {
+                try {
+                    parsed = JSON.parse(localWebsites);
+                } catch (pe) {
+                    console.warn('[Websites] Données locales corrompues, purge du cache:', pe);
+                    safeStorage.removeItem('procura_custom_websites');
+                    parsed = null;
+                }
+            }
+
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                adminWebsitesList = parsed;
             } else {
                 // 2. Fallback JSON officiel
-                const res = await fetch('official_websites.json');
+                const res = await fetch('official_websites.json?v=20260905_v49');
                 if (res.ok) {
                     adminWebsitesList = await res.json();
                     safeStorage.setItem('procura_custom_websites', adminWebsitesList);
@@ -3108,7 +3120,14 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             }
         } catch (err) {
             console.error('[Websites] Erreur chargement:', err);
-            adminWebsitesList = [];
+            try {
+                const res = await fetch('official_websites.json?v=20260905_v49');
+                if (res.ok) {
+                    adminWebsitesList = await res.json();
+                }
+            } catch (_) {
+                adminWebsitesList = [];
+            }
         }
 
         populateWebsiteCountryFilter();
