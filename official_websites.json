@@ -1,0 +1,314 @@
+[
+  {
+    "id": "site_1",
+    "name": "Bass Consulting",
+    "category": "Cabinet & Conseil",
+    "url": "https://www.bassconsulting.africa",
+    "country": "Afrique",
+    "description": "Cabinet de conseil expert en marchés publics, finances et gouvernance."
+  },
+  {
+    "id": "site_2",
+    "name": "Banque Mondiale (World Bank)",
+    "category": "Bailleurs de Fonds / IFI",
+    "url": "https://www.worldbank.org",
+    "country": "International",
+    "description": "Règlement et directives de passation des marchés pour les projets financés par la Banque Mondiale."
+  },
+  {
+    "id": "site_3",
+    "name": "La Banque Mondiale (Portail Francophone)",
+    "category": "Bailleurs de Fonds / IFI",
+    "url": "https://www.labanquemondiale.org",
+    "country": "International",
+    "description": "Portail officiel francophone de la Banque Mondiale."
+  },
+  {
+    "id": "site_4",
+    "name": "BOAD (Banque Ouest Africaine de Développement)",
+    "category": "Bailleurs de Fonds / IFI",
+    "url": "https://www.boad.org",
+    "country": "UEMOA",
+    "description": "Directives et avis de marchés pour les projets financés par la BOAD."
+  },
+  {
+    "id": "site_5",
+    "name": "BIDC / EBID (Banque d'Investissement et de Développement de la CEDEAO)",
+    "category": "Bailleurs de Fonds / IFI",
+    "url": "https://www.bidc-ebid.org",
+    "country": "CEDEAO",
+    "description": "Procédures de passation des marchés et avis de la BIDC."
+  },
+  {
+    "id": "site_6",
+    "name": "BAD (Banque Africaine de Développement)",
+    "category": "Bailleurs de Fonds / IFI",
+    "url": "https://www.afdb.org",
+    "country": "Afrique",
+    "description": "Cadre de passation des marchés et directives pour les opérations du Groupe de la BAD."
+  },
+  {
+    "id": "site_7",
+    "name": "BID / IsDB (Banque Islamique de Développement)",
+    "category": "Bailleurs de Fonds / IFI",
+    "url": "https://www.isdb.org",
+    "country": "International",
+    "description": "Directives de passation des marchés de biens, travaux et services de la BID."
+  },
+  {
+    "id": "site_8",
+    "name": "BADEA (Banque Arabe pour le Développement Économique en Afrique)",
+    "category": "Bailleurs de Fonds / IFI",
+    "url": "https://www.badea.org",
+    "country": "Afrique",
+    "description": "Règles et guides de passation de marchés de la BADEA."
+  },
+  {
+    "id": "site_9",
+    "name": "AFD (Agence Française de Développement)",
+    "category": "Bailleurs de Fonds / IFI",
+    "url": "https://www.afd.fr",
+    "country": "International",
+    "description": "Directives pour la passation des marchés financés par l'AFD."
+  },
+  {
+    "id": "site_10",
+    "name": "ARMP Bénin",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.armp.bj",
+    "country": "Bénin",
+    "description": "Autorité de Régulation des Marchés Publics du Bénin : décisions, textes et recours."
+  },
+  {
+    "id": "site_11",
+    "name": "ARCOP Togo",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.arcop.tg",
+    "country": "Togo",
+    "description": "Autorité de Régulation de la Commande Publique du Togo : réglementation, guides et décisions."
+  },
+  {
+    "id": "site_12",
+    "name": "ARCOP Niger",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.arcop.ne",
+    "country": "Niger",
+    "description": "Autorité de Régulation de la Commande Publique du Niger : code des marchés et décisions."
+  },
+  {
+    "id": "site_13",
+    "name": "ARCOP Burkina Faso",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.arcop.bf",
+    "country": "Burkina Faso",
+    "description": "Autorité de Régulation de la Commande Publique du Burkina Faso : textes officiels et jurisprudence."
+  },
+  {
+    "id": "site_14",
+    "name": "ARCOP Sénégal",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.arcop.sn",
+    "country": "Sénégal",
+    "description": "Autorité de Régulation de la Commande Publique du Sénégal : code des marchés et avis du CRD."
+  },
+  {
+    "id": "site_15",
+    "name": "ARCOP Côte d'Ivoire",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.arcop.ci",
+    "country": "Côte d'Ivoire",
+    "description": "Autorité de Régulation de la Commande Publique de Côte d'Ivoire."
+  },
+  {
+    "id": "site_16",
+    "name": "ARMDS Mali",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.armds.ml",
+    "country": "Mali",
+    "description": "Autorité de Régulation des Marchés Publics et des Délégations de Service Public du Mali."
+  },
+  {
+    "id": "site_17",
+    "name": "ARMP Guinée",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.armpguinee.org",
+    "country": "Guinée",
+    "description": "Autorité de Régulation des Marchés Publics de Guinée : réglementation et DAO types."
+  },
+  {
+    "id": "site_18",
+    "name": "ARMP Congo-Brazzaville",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.armp.cg",
+    "country": "Congo-Brazzaville",
+    "description": "Autorité de Régulation des Marchés Publics de la République du Congo."
+  },
+  {
+    "id": "site_19",
+    "name": "ARMP RDC",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.armp-rdc.cd",
+    "country": "RDC",
+    "description": "Autorité de Régulation des Marchés Publics de la République Démocratique du Congo."
+  },
+  {
+    "id": "site_20",
+    "name": "ARMP Gabon",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.armp.ga",
+    "country": "Gabon",
+    "description": "Autorité de Régulation des Marchés Publics du Gabon : cadre légal et avis."
+  },
+  {
+    "id": "site_21",
+    "name": "ARMP Cameroun",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.armp.cm",
+    "country": "Cameroun",
+    "description": "Agence de Régulation des Marchés Publics du Cameroun : journal des marchés et textes."
+  },
+  {
+    "id": "site_22",
+    "name": "DGCMP / RCA",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.dgmp-rca.com",
+    "country": "République centrafricaine",
+    "description": "Direction Générale des Marchés Publics de la République Centrafricaine."
+  },
+  {
+    "id": "site_23",
+    "name": "ARMP Tchad",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.armp-tchad.com",
+    "country": "Tchad",
+    "description": "Autorité de Régulation des Marchés Publics du Tchad."
+  },
+  {
+    "id": "site_24",
+    "name": "ARMP Mauritanie",
+    "category": "Autorité de Régulation (ARMP / ARCOP)",
+    "url": "https://www.armp.mr",
+    "country": "Mauritanie",
+    "description": "Autorité de Régulation des Marchés Publics de Mauritanie."
+  },
+  {
+    "id": "site_25",
+    "name": "Gouvernement du Bénin",
+    "category": "Portail Gouvernemental",
+    "url": "https://www.gouv.bj/",
+    "country": "Bénin",
+    "description": "Portail officiel du Gouvernement de la République du Bénin."
+  },
+  {
+    "id": "site_26",
+    "name": "Gouvernement du Burkina Faso",
+    "category": "Portail Gouvernemental",
+    "url": "https://gouvernement.gov.bf/",
+    "country": "Burkina Faso",
+    "description": "Portail officiel du Gouvernement du Burkina Faso."
+  },
+  {
+    "id": "site_27",
+    "name": "Primature du Cameroun",
+    "category": "Portail Gouvernemental",
+    "url": "https://www.spm.gov.cm/",
+    "country": "Cameroun",
+    "description": "Services du Premier Ministre de la République du Cameroun."
+  },
+  {
+    "id": "site_28",
+    "name": "Gouvernement Centrafricain",
+    "category": "Portail Gouvernemental",
+    "url": "https://gouvernement.cf/",
+    "country": "République centrafricaine",
+    "description": "Portail officiel du Gouvernement de la République Centrafricaine."
+  },
+  {
+    "id": "site_29",
+    "name": "Gouvernement du Tchad",
+    "category": "Portail Gouvernemental",
+    "url": "https://www.gouv.td/",
+    "country": "Tchad",
+    "description": "Portail officiel du Gouvernement de la République du Tchad."
+  },
+  {
+    "id": "site_30",
+    "name": "Gouvernement de Côte d'Ivoire",
+    "category": "Portail Gouvernemental",
+    "url": "https://www.gouv.ci/",
+    "country": "Côte d'Ivoire",
+    "description": "Portail officiel du Gouvernement de Côte d'Ivoire."
+  },
+  {
+    "id": "site_31",
+    "name": "Gouvernement du Congo-Brazzaville",
+    "category": "Portail Gouvernemental",
+    "url": "https://gouvernement.cg/",
+    "country": "Congo-Brazzaville",
+    "description": "Portail officiel du Gouvernement de la République du Congo."
+  },
+  {
+    "id": "site_32",
+    "name": "Primature de la RDC",
+    "category": "Portail Gouvernemental",
+    "url": "https://www.primature.gouv.cd/",
+    "country": "RDC",
+    "description": "Portail officiel de la Primature de la République Démocratique du Congo."
+  },
+  {
+    "id": "site_33",
+    "name": "Gouvernement du Gabon",
+    "category": "Portail Gouvernemental",
+    "url": "https://gouvernement.ga/",
+    "country": "Gabon",
+    "description": "Portail officiel du Gouvernement de la République Gabonaise."
+  },
+  {
+    "id": "site_34",
+    "name": "Gouvernement de Guinée",
+    "category": "Portail Gouvernemental",
+    "url": "https://gouvernement.gov.gn/",
+    "country": "Guinée",
+    "description": "Portail officiel du Gouvernement de la République de Guinée."
+  },
+  {
+    "id": "site_35",
+    "name": "Primature du Mali",
+    "category": "Portail Gouvernemental",
+    "url": "https://primature.ml/",
+    "country": "Mali",
+    "description": "Portail officiel de la Primature de la République du Mali."
+  },
+  {
+    "id": "site_36",
+    "name": "Primature de Mauritanie",
+    "category": "Portail Gouvernemental",
+    "url": "https://www.primature.gov.mr/",
+    "country": "Mauritanie",
+    "description": "Portail officiel de la Primature de la République Islamique de Mauritanie."
+  },
+  {
+    "id": "site_37",
+    "name": "Gouvernement du Niger",
+    "category": "Portail Gouvernemental",
+    "url": "https://www.gouv.ne/",
+    "country": "Niger",
+    "description": "Portail officiel du Gouvernement de la République du Niger."
+  },
+  {
+    "id": "site_38",
+    "name": "Primature du Sénégal",
+    "category": "Portail Gouvernemental",
+    "url": "https://www.primature.sn/",
+    "country": "Sénégal",
+    "description": "Portail officiel de la Primature de la République du Sénégal."
+  },
+  {
+    "id": "site_39",
+    "name": "Gouvernement du Togo",
+    "category": "Portail Gouvernemental",
+    "url": "https://togo.gouv.tg/",
+    "country": "Togo",
+    "description": "Portail officiel de la République Togolaise."
+  }
+]

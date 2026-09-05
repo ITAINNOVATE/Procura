@@ -278,7 +278,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20260905_v47');
+            searchWorker = new Worker('searchWorker.js?v=20260905_v48');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') {
@@ -1923,7 +1923,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     };
 
     window.switchAdminTab = function(tabId) {
-        const tabs = ['audit', 'docs', 'users'];
+        const tabs = ['audit', 'docs', 'users', 'websites'];
         tabs.forEach(t => {
             const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
             const content = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`);
@@ -1943,6 +1943,8 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             window.loadAndRenderDocCatalog();
         } else if (tabId === 'users') {
             window.loadAndRenderAdminUsers();
+        } else if (tabId === 'websites') {
+            window.loadAndRenderWebsites();
         }
         if (typeof lucide !== 'undefined') lucide.createIcons();
     };
@@ -3080,7 +3082,282 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         }
     };
 
+    // ── GESTION DES SITES WEB & SOURCES OFFICIELLES ──────────────────────────
+    let adminWebsitesList = [];
+    let filteredWebsitesList = [];
 
+    window.loadAndRenderWebsites = async function() {
+        const tbody = document.getElementById('websitesTbody');
+        const countDisplay = document.getElementById('websitesCountDisplay');
+        if (countDisplay) countDisplay.textContent = 'Chargement des sites web officiels...';
+
+        try {
+            // 1. Charger depuis le stockage local personnalisé s'il existe
+            const localWebsites = safeStorage.getItem('procura_custom_websites');
+            if (localWebsites) {
+                adminWebsitesList = JSON.parse(localWebsites);
+            } else {
+                // 2. Fallback JSON officiel
+                const res = await fetch('official_websites.json');
+                if (res.ok) {
+                    adminWebsitesList = await res.json();
+                    safeStorage.setItem('procura_custom_websites', adminWebsitesList);
+                } else {
+                    adminWebsitesList = [];
+                }
+            }
+        } catch (err) {
+            console.error('[Websites] Erreur chargement:', err);
+            adminWebsitesList = [];
+        }
+
+        populateWebsiteCountryFilter();
+        window.filterWebsites();
+    };
+
+    function populateWebsiteCountryFilter() {
+        const filter = document.getElementById('websiteCountryFilter');
+        if (!filter) return;
+        const currentVal = filter.value;
+        const countries = Array.from(new Set(adminWebsitesList.map(s => s.country).filter(Boolean))).sort();
+        filter.innerHTML = '<option value="">Tous les pays / zones</option>' +
+            countries.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+        if (currentVal) filter.value = currentVal;
+    }
+
+    window.filterWebsites = function() {
+        const search = (document.getElementById('websiteSearchInput')?.value || '').toLowerCase().trim();
+        const catFilter = (document.getElementById('websiteCategoryFilter')?.value || '').toLowerCase().trim();
+        const countryFilter = (document.getElementById('websiteCountryFilter')?.value || '').toLowerCase().trim();
+
+        filteredWebsitesList = adminWebsitesList.filter(s => {
+            const matchSearch = !search ||
+                (s.name && s.name.toLowerCase().includes(search)) ||
+                (s.url && s.url.toLowerCase().includes(search)) ||
+                (s.country && s.country.toLowerCase().includes(search)) ||
+                (s.description && s.description.toLowerCase().includes(search));
+
+            const matchCat = !catFilter || (s.category && s.category.toLowerCase() === catFilter);
+            const matchCountry = !countryFilter || (s.country && s.country.toLowerCase() === countryFilter);
+
+            return matchSearch && matchCat && matchCountry;
+        });
+
+        window.renderWebsites();
+    };
+
+    window.renderWebsites = function() {
+        const tbody = document.getElementById('websitesTbody');
+        const countDisplay = document.getElementById('websitesCountDisplay');
+        const statTotal = document.getElementById('statTotalWebsites');
+        const statRegulators = document.getElementById('statRegulatorsCount');
+        const statDonors = document.getElementById('statDonorsCount');
+        const statGov = document.getElementById('statGovCount');
+
+        // Mettre à jour les compteurs statistiques
+        if (statTotal) statTotal.textContent = adminWebsitesList.length;
+        if (statRegulators) {
+            statRegulators.textContent = adminWebsitesList.filter(s =>
+                s.category && (s.category.includes('Régulation') || s.category.includes('ARMP') || s.category.includes('ARCOP'))
+            ).length;
+        }
+        if (statDonors) {
+            statDonors.textContent = adminWebsitesList.filter(s =>
+                s.category && (s.category.includes('Bailleur') || s.category.includes('IFI'))
+            ).length;
+        }
+        if (statGov) {
+            statGov.textContent = adminWebsitesList.filter(s =>
+                s.category && (s.category.includes('Gouvernement') || s.category.includes('Portail'))
+            ).length;
+        }
+
+        if (!tbody) return;
+
+        if (countDisplay) {
+            countDisplay.innerHTML = `Affichage de <strong>${filteredWebsitesList.length}</strong> site(s) sur <strong>${adminWebsitesList.length}</strong> référencés dans PROCURA`;
+        }
+
+        if (filteredWebsitesList.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align:center; padding:3rem; color:#94a3b8;">
+                        <i data-lucide="globe" style="width:32px; height:32px; margin-bottom:0.5rem; color:#64748b;"></i>
+                        <div>Aucun site web officiel ne correspond à cette recherche.</div>
+                    </td>
+                </tr>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
+        tbody.innerHTML = filteredWebsitesList.map((site) => {
+            const isRegulator = site.category && (site.category.includes('Régulation') || site.category.includes('ARMP') || site.category.includes('ARCOP'));
+            const isDonor = site.category && (site.category.includes('Bailleur') || site.category.includes('IFI'));
+            const badgeClass = isRegulator ? 'blue' : (isDonor ? 'green' : 'gold');
+
+            return `
+                <tr class="doc-row-item">
+                    <td>
+                        <div style="font-weight:600; color:#f8fafc; font-size:0.9rem;">
+                            <i data-lucide="globe" style="width:14px; height:14px; color:var(--color-gold); vertical-align:middle; margin-right:4px;"></i>
+                            ${escapeHtml(site.name)}
+                        </div>
+                        ${site.description ? `<div style="font-size:0.78rem; color:#94a3b8; margin-top:2px; max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(site.description)}</div>` : ''}
+                    </td>
+                    <td>
+                        <span style="display:inline-flex; align-items:center; gap:4px; font-size:0.85rem; color:#cbd5e1;">
+                            <i data-lucide="map-pin" style="width:12px; height:12px; color:#64748b;"></i>
+                            ${escapeHtml(site.country || 'International')}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="admin-badge ${badgeClass}" style="font-size:0.75rem;">
+                            ${escapeHtml(site.category || 'Source Officielle')}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="${escapeHtml(site.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--color-gold); font-size:0.85rem; font-family:monospace; text-decoration:none; display:inline-flex; align-items:center; gap:4px; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                            ${escapeHtml(site.url.replace(/^https?:\/\//, ''))}
+                            <i data-lucide="external-link" style="width:12px; height:12px; flex-shrink:0;"></i>
+                        </a>
+                    </td>
+                    <td style="text-align:center;">
+                        <div style="display:inline-flex; gap:6px;">
+                            <button onclick="openEditWebsiteModal('${escapeHtml(site.id)}')" title="Modifier ce site" class="btn-action edit" style="padding:4px 8px; border-radius:6px; background:rgba(212,175,55,0.12); color:var(--color-gold); border:1px solid rgba(212,175,55,0.25); cursor:pointer;">
+                                <i data-lucide="edit-3" style="width:13px; height:13px;"></i>
+                            </button>
+                            <button onclick="openDeleteWebsiteModal('${escapeHtml(site.id)}')" title="Supprimer ce site" class="btn-action delete" style="padding:4px 8px; border-radius:6px; background:rgba(239,68,68,0.12); color:#f87171; border:1px solid rgba(239,68,68,0.25); cursor:pointer;">
+                                <i data-lucide="trash-2" style="width:13px; height:13px;"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
+    // ── MODALE AJOUT / MODIFICATION SITE WEB ─────────────────────────────────
+    window.openAddWebsiteModal = function() {
+        document.getElementById('websiteModalTitle').innerHTML = `<i data-lucide="plus-circle"></i> Ajouter un Site Web Officiel`;
+        document.getElementById('editWebsiteId').value = '';
+        document.getElementById('websiteNameInput').value = '';
+        document.getElementById('websiteCategoryInput').value = 'Autorité de Régulation (ARMP / ARCOP)';
+        document.getElementById('websiteCountryInput').value = '';
+        document.getElementById('websiteUrlInput').value = 'https://';
+        document.getElementById('websiteDescriptionInput').value = '';
+        document.getElementById('websiteModalSuccess').classList.add('hidden');
+        document.getElementById('websiteModalError').classList.add('hidden');
+        document.getElementById('adminWebsiteModal').classList.remove('hidden');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
+    window.openEditWebsiteModal = function(id) {
+        const site = adminWebsitesList.find(s => s.id === id);
+        if (!site) return;
+
+        document.getElementById('websiteModalTitle').innerHTML = `<i data-lucide="edit-3"></i> Modifier le Site Web Officiel`;
+        document.getElementById('editWebsiteId').value = site.id;
+        document.getElementById('websiteNameInput').value = site.name || '';
+        document.getElementById('websiteCategoryInput').value = site.category || 'Autorité de Régulation (ARMP / ARCOP)';
+        document.getElementById('websiteCountryInput').value = site.country || '';
+        document.getElementById('websiteUrlInput').value = site.url || 'https://';
+        document.getElementById('websiteDescriptionInput').value = site.description || '';
+        document.getElementById('websiteModalSuccess').classList.add('hidden');
+        document.getElementById('websiteModalError').classList.add('hidden');
+        document.getElementById('adminWebsiteModal').classList.remove('hidden');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
+    window.closeWebsiteModal = function(e) {
+        if (e && e.target && e.target !== document.getElementById('adminWebsiteModal')) return;
+        document.getElementById('adminWebsiteModal').classList.add('hidden');
+    };
+
+    window.saveWebsiteModal = function() {
+        const id = document.getElementById('editWebsiteId').value;
+        const name = document.getElementById('websiteNameInput').value.trim();
+        const category = document.getElementById('websiteCategoryInput').value;
+        const country = document.getElementById('websiteCountryInput').value.trim() || 'International';
+        let url = document.getElementById('websiteUrlInput').value.trim();
+        const description = document.getElementById('websiteDescriptionInput').value.trim();
+        const errEl = document.getElementById('websiteModalError');
+        const succEl = document.getElementById('websiteModalSuccess');
+
+        if (!name) {
+            errEl.textContent = "Veuillez saisir le nom de l'institution.";
+            errEl.classList.remove('hidden');
+            return;
+        }
+        if (!url || url === 'https://') {
+            errEl.textContent = "Veuillez renseigner une URL valide.";
+            errEl.classList.remove('hidden');
+            return;
+        }
+
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            url = 'https://' + url;
+        }
+
+        if (id) {
+            // Modification
+            const idx = adminWebsitesList.findIndex(s => s.id === id);
+            if (idx !== -1) {
+                adminWebsitesList[idx] = { ...adminWebsitesList[idx], name, category, country, url, description };
+            }
+        } else {
+            // Ajout
+            const newSite = {
+                id: 'site_' + Date.now(),
+                name,
+                category,
+                country,
+                url,
+                description
+            };
+            adminWebsitesList.unshift(newSite);
+        }
+
+        safeStorage.setItem('procura_custom_websites', adminWebsitesList);
+        populateWebsiteCountryFilter();
+        window.filterWebsites();
+
+        succEl.textContent = "Site enregistré avec succès !";
+        succEl.classList.remove('hidden');
+        setTimeout(() => {
+            document.getElementById('adminWebsiteModal').classList.add('hidden');
+            succEl.classList.add('hidden');
+        }, 800);
+    };
+
+    // ── MODALE SUPPRESSION SITE WEB ──────────────────────────────────────────
+    window.openDeleteWebsiteModal = function(id) {
+        const site = adminWebsitesList.find(s => s.id === id);
+        if (!site) return;
+        document.getElementById('deleteWebsiteId').value = site.id;
+        document.getElementById('deleteWebsiteName').textContent = `"${site.name}" (${site.url})`;
+        document.getElementById('deleteWebsiteError').classList.add('hidden');
+        document.getElementById('adminDeleteWebsiteModal').classList.remove('hidden');
+    };
+
+    window.closeDeleteWebsiteModal = function(e) {
+        if (e && e.target && e.target !== document.getElementById('adminDeleteWebsiteModal')) return;
+        document.getElementById('adminDeleteWebsiteModal').classList.add('hidden');
+    };
+
+    window.confirmDeleteWebsite = function() {
+        const id = document.getElementById('deleteWebsiteId').value;
+        if (!id) return;
+
+        adminWebsitesList = adminWebsitesList.filter(s => s.id !== id);
+        safeStorage.setItem('procura_custom_websites', adminWebsitesList);
+        populateWebsiteCountryFilter();
+        window.filterWebsites();
+
+        document.getElementById('adminDeleteWebsiteModal').classList.add('hidden');
+    };
 
     function escapeHtml(str) {
         if (!str) return '';

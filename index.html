@@ -822,6 +822,10 @@
                             <i data-lucide="users"></i>
                             <span>Utilisateurs & Abonnements</span>
                         </button>
+                        <button class="admin-nav-item" onclick="switchAdminTab('websites')" id="tabBtnWebsites">
+                            <i data-lucide="globe"></i>
+                            <span>Sites Web & Sources Officielles</span>
+                        </button>
                     </nav>
                     <div class="admin-sidebar-footer">
                         <div class="sys-status">
@@ -1166,6 +1170,90 @@
                             </div>
                         </div>
                     </section>
+
+                    <!-- TAB 4 : SITES WEB & SOURCES OFFICIELLES -->
+                    <section class="admin-tab-content hidden" id="tabWebsites">
+                        <div class="tab-header-row">
+                            <div>
+                                <h2 class="admin-section-title">Répertoire des Sites Web & Sources Officielles</h2>
+                                <p class="admin-section-subtitle">Consultez, ajoutez, modifiez ou supprimez les portails institutionnels (ARMP/ARCOP, Bailleurs, Primatures) exploités par PROCURA.</p>
+                            </div>
+                            <button class="admin-btn-gold" onclick="openAddWebsiteModal()">
+                                <i data-lucide="plus-circle"></i> Ajouter un Site Web
+                            </button>
+                        </div>
+
+                        <!-- Stats Grid for Websites -->
+                        <div class="admin-stats-grid">
+                            <div class="admin-stat-card">
+                                <div class="stat-icon-box gold"><i data-lucide="globe"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-value" id="statTotalWebsites">39</span>
+                                    <span class="stat-label">Sites Web Référencés</span>
+                                </div>
+                            </div>
+                            <div class="admin-stat-card">
+                                <div class="stat-icon-box blue"><i data-lucide="shield-check"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-value" id="statRegulatorsCount">15</span>
+                                    <span class="stat-label">Régulateurs ARMP / ARCOP</span>
+                                </div>
+                            </div>
+                            <div class="admin-stat-card">
+                                <div class="stat-icon-box green"><i data-lucide="landmark"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-value" id="statDonorsCount">8</span>
+                                    <span class="stat-label">Bailleurs de Fonds / IFI</span>
+                                </div>
+                            </div>
+                            <div class="admin-stat-card">
+                                <div class="stat-icon-box gold"><i data-lucide="building-2"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-value" id="statGovCount">15</span>
+                                    <span class="stat-label">Portails Gouvernementaux</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Filters & Search Toolbar -->
+                        <div class="admin-toolbar margin-top">
+                            <div class="admin-search-wrapper" style="flex:2;">
+                                <i data-lucide="search" class="search-icon"></i>
+                                <input type="text" id="websiteSearchInput" placeholder="Rechercher par nom d'institution, pays ou URL..." oninput="filterWebsites()">
+                            </div>
+                            <select id="websiteCategoryFilter" onchange="filterWebsites()" class="admin-select" style="flex:1;">
+                                <option value="">Toutes les catégories</option>
+                                <option value="Autorité de Régulation (ARMP / ARCOP)">Autorités de Régulation (ARMP / ARCOP)</option>
+                                <option value="Bailleurs de Fonds / IFI">Bailleurs de Fonds / IFI</option>
+                                <option value="Portail Gouvernemental">Portails Gouvernementaux</option>
+                                <option value="Cabinet & Conseil">Cabinet & Conseil</option>
+                            </select>
+                            <select id="websiteCountryFilter" onchange="filterWebsites()" class="admin-select" style="flex:1;">
+                                <option value="">Tous les pays / zones</option>
+                            </select>
+                        </div>
+
+                        <!-- Websites Table -->
+                        <div class="admin-table-container">
+                            <table class="admin-table" id="websitesTable">
+                                <thead>
+                                    <tr>
+                                        <th style="width:24%;">Institution / Nom</th>
+                                        <th style="width:14%;">Pays / Zone</th>
+                                        <th style="width:20%;">Catégorie</th>
+                                        <th style="width:26%;">Lien Officiel</th>
+                                        <th style="width:16%; text-align:center;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="websitesTbody">
+                                    <!-- Dynamic -->
+                                </tbody>
+                            </table>
+                            <div id="websitesCountDisplay" style="padding:0.85rem 1.25rem; background:#090d16; border-top:1px solid rgba(255,255,255,0.08); font-size:0.82rem; color:#94a3b8;">
+                                Chargement des sites web...
+                            </div>
+                        </div>
+                    </section>
                 </main>
             </div>
         </div>
@@ -1311,7 +1399,90 @@
         </div>
     </div>
 
+    <!-- MODAL AJOUT / MODIFICATION SITE WEB (ADMIN) -->
+    <div class="admin-modal-overlay hidden" id="adminWebsiteModal" onclick="closeWebsiteModal(event)">
+        <div class="admin-modal-card" onclick="event.stopPropagation()" style="max-width:540px;">
+            <div class="admin-modal-header">
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                    <div class="stat-icon-box gold" style="width:36px; height:36px; min-width:36px;"><i data-lucide="globe"></i></div>
+                    <div>
+                        <h3 class="admin-modal-title" id="websiteModalTitle">Ajouter un Site Web Officiel</h3>
+                        <div class="admin-modal-subtitle">Référencement dans la base de connaissances PROCURA</div>
+                    </div>
+                </div>
+                <button class="btn-close-admin" onclick="closeWebsiteModal()"><i data-lucide="x"></i></button>
+            </div>
+            <div class="admin-modal-body">
+                <input type="hidden" id="editWebsiteId" value="">
+                <div class="form-group margin-bottom">
+                    <label class="admin-label">Nom de l'Institution / Portail <span class="req">*</span></label>
+                    <input type="text" id="websiteNameInput" class="admin-input-text" placeholder="Ex: ARCOP Bénin, Banque Mondiale, Primature...">
+                </div>
+                <div class="form-row-2">
+                    <div class="form-group margin-bottom">
+                        <label class="admin-label">Catégorie <span class="req">*</span></label>
+                        <select id="websiteCategoryInput" class="admin-select">
+                            <option value="Autorité de Régulation (ARMP / ARCOP)">Autorité de Régulation (ARMP / ARCOP)</option>
+                            <option value="Bailleurs de Fonds / IFI">Bailleurs de Fonds / IFI</option>
+                            <option value="Portail Gouvernemental">Portail Gouvernemental</option>
+                            <option value="Cabinet & Conseil">Cabinet & Conseil</option>
+                            <option value="Autre Source">Autre Source</option>
+                        </select>
+                    </div>
+                    <div class="form-group margin-bottom">
+                        <label class="admin-label">Pays / Zone <span class="req">*</span></label>
+                        <input type="text" id="websiteCountryInput" class="admin-input-text" placeholder="Ex: Bénin, Sénégal, International, UEMOA...">
+                    </div>
+                </div>
+                <div class="form-group margin-bottom">
+                    <label class="admin-label">URL Officielle <span class="req">*</span></label>
+                    <input type="url" id="websiteUrlInput" class="admin-input-text" placeholder="https://www.exemple.org">
+                </div>
+                <div class="form-group margin-bottom">
+                    <label class="admin-label">Description / Rôle</label>
+                    <textarea id="websiteDescriptionInput" class="admin-input-text" rows="3" placeholder="Ex: Portail de publication des avis de marchés et décisions contentieuses..."></textarea>
+                </div>
+                <div class="admin-alert success hidden" id="websiteModalSuccess">Site enregistré avec succès.</div>
+                <div class="admin-alert hidden" id="websiteModalError" style="background:rgba(239,68,68,0.12); color:#f87171; border-color:#f87171;"></div>
+            </div>
+            <div class="admin-modal-footer" style="display:flex; gap:0.75rem; justify-content:flex-end;">
+                <button class="admin-btn-secondary" onclick="closeWebsiteModal()">Annuler</button>
+                <button class="admin-btn-gold" id="btnSaveWebsite" onclick="saveWebsiteModal()">
+                    <i data-lucide="save"></i> Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIRMATION SUPPRESSION SITE WEB (ADMIN) -->
+    <div class="admin-modal-overlay hidden" id="adminDeleteWebsiteModal" onclick="closeDeleteWebsiteModal(event)">
+        <div class="admin-modal-card" onclick="event.stopPropagation()" style="max-width:440px;">
+            <div class="admin-modal-header">
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                    <div class="stat-icon-box" style="width:36px; height:36px; min-width:36px; background:rgba(239,68,68,0.15);"><i data-lucide="trash-2" style="color:#f87171;"></i></div>
+                    <div>
+                        <h3 class="admin-modal-title" style="color:#f87171;">Supprimer ce site web ?</h3>
+                        <div class="admin-modal-subtitle">Cette action retirera ce site des références</div>
+                    </div>
+                </div>
+                <button class="btn-close-admin" onclick="closeDeleteWebsiteModal()"><i data-lucide="x"></i></button>
+            </div>
+            <div class="admin-modal-body">
+                <input type="hidden" id="deleteWebsiteId" value="">
+                <p style="color:#cbd5e1; line-height:1.6;">Êtes-vous sûr de vouloir retirer le site :</p>
+                <p id="deleteWebsiteName" style="color:#f8fafc; font-weight:700; margin:0.75rem 0; padding:0.75rem; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.25); border-radius:8px;"></p>
+                <div class="admin-alert hidden" id="deleteWebsiteError" style="background:rgba(239,68,68,0.12); color:#f87171; border-color:#f87171;"></div>
+            </div>
+            <div class="admin-modal-footer" style="display:flex; gap:0.75rem; justify-content:flex-end;">
+                <button class="admin-btn-secondary" onclick="closeDeleteWebsiteModal()">Annuler</button>
+                <button class="admin-btn-gold" id="btnConfirmDeleteWebsite" onclick="confirmDeleteWebsite()" style="background:linear-gradient(135deg,#ef4444,#dc2626); box-shadow:none;">
+                    <i data-lucide="trash-2"></i> Supprimer définitivement
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="/api/app-config.js"></script>
-    <script src="script.js?v=20260905_v47"></script>
+    <script src="script.js?v=20260905_v48"></script>
 </body>
 </html>
