@@ -267,18 +267,42 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     let searchResolvers = {};
     let searchQueryCounter = 0;
 
+    function updateTotalRAGChunkCounters(customTotal) {
+        const totalFormatted = (customTotal || 52447).toLocaleString('fr-FR');
+        const chunkCardEl = document.getElementById('statCatalogChunks');
+        if (chunkCardEl) chunkCardEl.textContent = totalFormatted;
+        const ragLabel = document.getElementById('ragStatusLabel');
+        if (ragLabel) ragLabel.textContent = `Moteur RAG : Actif (${totalFormatted} Chunks)`;
+    }
+
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20260904_v46');
+            searchWorker = new Worker('searchWorker.js?v=20260905_v47');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
-                    if (e.data.status === 'READY') searchWorkerReady = true;
+                    if (e.data.status === 'READY') {
+                        searchWorkerReady = true;
+                        // Synchroniser les chunks personnalisés sauvegardés
+                        try {
+                            const savedCustomChunks = JSON.parse(safeStorage.getItem('procura_custom_chunks') || '[]');
+                            if (savedCustomChunks.length > 0) {
+                                searchWorker.postMessage({ type: 'SYNC_CUSTOM_CHUNKS', chunks: savedCustomChunks });
+                            }
+                        } catch (_) {}
+                    }
+                    if (e.data.total) {
+                        updateTotalRAGChunkCounters(e.data.total);
+                    }
                 } else if (e.data.type === 'SEARCH_RESULT') {
                     const { queryId, result } = e.data;
                     if (searchResolvers[queryId]) {
                         searchResolvers[queryId](result);
                         delete searchResolvers[queryId];
+                    }
+                } else if (e.data.type === 'CHUNKS_ADDED' || e.data.type === 'CHUNKS_REMOVED') {
+                    if (e.data.total) {
+                        updateTotalRAGChunkCounters(e.data.total);
                     }
                 }
             };
@@ -2519,6 +2543,18 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                 const masterIdx = adminDocCatalog.findIndex(d => d.id === id || (d.title === docToRemove.title && d.filename === docToRemove.filename));
                 if (masterIdx !== -1) adminDocCatalog.splice(masterIdx, 1);
             }
+
+            // Supprimer ses chunks personnalisés du stockage et du Worker RAG
+            try {
+                const currentCustomChunks = JSON.parse(safeStorage.getItem('procura_custom_chunks') || '[]');
+                const remainingChunks = currentCustomChunks.filter(c => c.title !== docToRemove.title && (!docToRemove.filename || !c.path?.includes(docToRemove.filename)));
+                safeStorage.setItem('procura_custom_chunks', remainingChunks);
+            } catch (_) {}
+
+            if (searchWorker) {
+                searchWorker.postMessage({ type: 'REMOVE_DOC_CHUNKS', docTitle: docToRemove.title, filename: docToRemove.filename });
+            }
+
             // Mettre à jour le compteur
             const countFormatted = adminDocCatalog ? adminDocCatalog.length.toLocaleString('fr-FR') : '';
             const statEl = document.getElementById('statCatalogDocs');
@@ -2561,7 +2597,100 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         `).join('');
     };
 
-    // ── UPLOAD RÉEL VERS SUPABASE ────────────────────────────────────────────
+    // ── Extraction et segmentation automatique de texte pour le RAG ──
+    async function extractDocumentText(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        
+        if (ext === 'pdf') {
+            if (!window.pdfjsLib) {
+                throw new Error("Moteur PDF.js en cours de chargement, veuillez patienter quelques secondes puis réessayer.");
+            }
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageStr = textContent.items.map(item => item.str).join(' ');
+                if (pageStr.trim()) {
+                    fullText += `\n[Page ${i}]\n` + pageStr + '\n';
+                }
+            }
+            return fullText.trim();
+        } else if (ext === 'docx' || ext === 'doc') {
+            if (!window.mammoth) {
+                throw new Error("Moteur Word DOCX en cours de chargement, veuillez patienter quelques secondes puis réessayer.");
+            }
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({ arrayBuffer });
+            return result.value.trim();
+        } else {
+            // Text, MD, RTF, JSON
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result || '');
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        }
+    }
+
+    function chunkDocumentText(text, docTitle, category, docPath) {
+        const CHUNK_SIZE = 1200;
+        const CHUNK_OVERLAP = 200;
+        const chunks = [];
+        
+        const cleanText = (text || '').replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ');
+        if (!cleanText || cleanText.length < 30) {
+            return [{
+                id: 'chunk_custom_' + Date.now() + '_0',
+                title: docTitle,
+                category: category,
+                content: cleanText || docTitle,
+                path: docPath || docTitle
+            }];
+        }
+        
+        let start = 0;
+        let chunkIndex = 0;
+        
+        while (start < cleanText.length) {
+            let end = start + CHUNK_SIZE;
+            
+            if (end < cleanText.length) {
+                const nextBreak = cleanText.lastIndexOf('\n', end);
+                const nextPeriod = cleanText.lastIndexOf('. ', end);
+                if (nextBreak > start + CHUNK_SIZE / 2) {
+                    end = nextBreak + 1;
+                } else if (nextPeriod > start + CHUNK_SIZE / 2) {
+                    end = nextPeriod + 2;
+                }
+            } else {
+                end = cleanText.length;
+            }
+            
+            const chunkContent = cleanText.slice(start, end).trim();
+            if (chunkContent.length > 30) {
+                chunks.push({
+                    id: `chunk_custom_${Date.now()}_${chunkIndex++}`,
+                    title: docTitle,
+                    category: category,
+                    content: chunkContent,
+                    path: docPath || docTitle
+                });
+            }
+            
+            start = end - CHUNK_OVERLAP;
+            if (start <= 0 || start >= cleanText.length || end >= cleanText.length) {
+                break;
+            }
+        }
+        
+        return chunks;
+    }
+
+    // ── UPLOAD RÉEL VERS SUPABASE & SEGMENTATION RAG EN DIRECT ────────────────
     window.handleAdminFileSelected = function(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -2592,21 +2721,52 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         const title = document.getElementById('docTitleInput').value.trim();
 
         if (!title) { alert('Veuillez saisir un titre officiel pour le document.'); return; }
-        if (!selectedAdminFile) { alert('Veuillez sélectionner un fichier PDF ou DOCX.'); return; }
+        if (!selectedAdminFile) { alert('Veuillez sélectionner un fichier PDF, DOCX ou texte.'); return; }
 
         const btn = document.getElementById('btnUploadDoc');
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = `<i data-lucide="loader-2" class="spin"></i> Enregistrement en cours...`;
+            btn.innerHTML = `<i data-lucide="loader-2" class="spin"></i> Extraction & Segmentation RAG en cours...`;
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
         const alertEl = document.getElementById('docUploadSuccess');
 
         try {
-            let storageUrl = '';
+            // 1. Extraire le texte du document dans le navigateur
+            let extractedText = '';
+            try {
+                extractedText = await extractDocumentText(selectedAdminFile);
+            } catch (extErr) {
+                console.warn('[Upload] Erreur extraction texte:', extErr);
+                extractedText = `Document: ${title}\nCatégorie: ${category}\nFichier: ${selectedAdminFile.name}`;
+            }
 
-            // 1. Upload du fichier dans Supabase Storage (bucket procura-docs)
+            // 2. Découpage automatique en chunks RAG
+            const generatedChunks = chunkDocumentText(
+                extractedText,
+                title,
+                category,
+                `Uploads Admin / ${category} / ${selectedAdminFile.name}`
+            );
+
+            console.log(`[Upload] ✅ Document "${title}" découpé avec succès en ${generatedChunks.length} chunks RAG.`);
+
+            // 3. Sauvegarder les fragments et les injecter dans le moteur de recherche
+            try {
+                const currentCustomChunks = JSON.parse(safeStorage.getItem('procura_custom_chunks') || '[]');
+                currentCustomChunks.push(...generatedChunks);
+                safeStorage.setItem('procura_custom_chunks', currentCustomChunks);
+            } catch (stErr) {
+                console.warn('[Upload] Erreur safeStorage custom chunks:', stErr);
+            }
+
+            if (searchWorker) {
+                searchWorker.postMessage({ type: 'ADD_CHUNKS', chunks: generatedChunks });
+            }
+
+            let storageUrl = '';
+            // 4. Upload du fichier dans Supabase Storage (bucket procura-docs)
             if (docSourceIsSupabase) {
                 const filePath = `uploads/${Date.now()}_${selectedAdminFile.name.replace(/\s+/g, '_')}`;
                 const uploadRes = await fetch(`${PROCURA_SUPABASE_URL}/storage/v1/object/procura-docs/${filePath}`, {
@@ -2625,15 +2785,16 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                 }
             }
 
-            // 2. Créer l'entrée dans la table procura_documents
+            // 5. Créer l'entrée dans la table procura_documents avec le nombre réel de chunks
+            const previewSnippet = (extractedText.slice(0, 350).trim()) || `Document "${title}" ajouté par l'administrateur le ${new Date().toLocaleDateString('fr-FR')}.`;
             const newDoc = {
                 title,
                 filename: selectedAdminFile.name,
                 category,
                 path: `Uploads Admin / ${category} / ${selectedAdminFile.name}`,
-                chunks: 0,
+                chunks: generatedChunks.length,
                 storage_url: storageUrl,
-                first_page_preview: `Document "${title}" ajouté par l'administrateur le ${new Date().toLocaleDateString('fr-FR')}.`
+                first_page_preview: previewSnippet
             };
 
             let insertedId = null;
@@ -2647,18 +2808,19 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                 }
             }
 
-            // 3. Ajouter en tête du catalogue en mémoire
+            // 6. Ajouter en tête du catalogue en mémoire
             const memDoc = { ...newDoc, id: insertedId || ('local_' + Date.now()) };
             if (adminDocCatalog) adminDocCatalog.unshift(memDoc);
 
-            // 4. Feedback UI
+            // 7. Feedback UI clair à l'administrateur
             if (alertEl) {
-                alertEl.textContent = `Le document "${title}" a été ${docSourceIsSupabase ? 'enregistré dans Supabase' : 'ajouté au catalogue local'} avec succès dans la catégorie [${category}].`;
+                alertEl.textContent = `✅ Document "${title}" enregistré et segmenté avec succès en ${generatedChunks.length} fragments RAG prêts pour la recherche !`;
                 alertEl.classList.remove('hidden');
-                setTimeout(() => alertEl.classList.add('hidden'), 6000);
+                alertEl.style = '';
+                setTimeout(() => alertEl.classList.add('hidden'), 7000);
             }
 
-            // Mettre à jour compteurs
+            // 8. Mettre à jour compteurs de documents et répertoires
             const countFormatted = adminDocCatalog ? adminDocCatalog.length.toLocaleString('fr-FR') : '';
             const statEl = document.getElementById('statCatalogDocs');
             if (statEl) statEl.textContent = countFormatted;

@@ -297,6 +297,19 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 1
     return contextMarkdown;
 }
 
+// Helper pour pré-indexer un chunk
+function indexChunkItem(chunk) {
+    return {
+        chunk: chunk,
+        contentNorm: normalize(chunk.content || ""),
+        titleNorm: normalize(chunk.title || ""),
+        categoryNorm: normalize(chunk.category || ""),
+        categoryRaw: (chunk.category || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+        titleRawLower: (chunk.title || '').toLowerCase(),
+        contentRawLower: (chunk.content || '').toLowerCase()
+    };
+}
+
 // Initialisation dès le lancement du worker
 loadKnowledgeBase();
 
@@ -316,5 +329,38 @@ self.addEventListener('message', async (e) => {
         
         const result = searchKnowledge(query, accessLevel, currentPlan, userCountry);
         postMessage({ type: 'SEARCH_RESULT', queryId, result });
+    } else if (type === 'ADD_CHUNKS') {
+        const newChunks = e.data.chunks || [];
+        if (newChunks.length > 0) {
+            const indexed = newChunks.map(indexChunkItem);
+            knowledgeBase.unshift(...indexed);
+            console.log(`[Worker] 📥 +${newChunks.length} nouveaux fragments (chunks RAG) indexés en direct ! Total base: ${knowledgeBase.length}`);
+            postMessage({ type: 'CHUNKS_ADDED', count: newChunks.length, total: knowledgeBase.length });
+        }
+    } else if (type === 'REMOVE_DOC_CHUNKS') {
+        const { docTitle, filename } = e.data;
+        if (docTitle || filename) {
+            const beforeCount = knowledgeBase.length;
+            knowledgeBase = knowledgeBase.filter(item => {
+                const matchTitle = docTitle && item.chunk.title === docTitle;
+                const matchFile = filename && (item.chunk.path?.includes(filename) || item.chunk.title?.includes(filename));
+                return !(matchTitle || matchFile);
+            });
+            const removed = beforeCount - knowledgeBase.length;
+            console.log(`[Worker] 🗑️ ${removed} fragments supprimés du RAG pour "${docTitle || filename}". Total restant: ${knowledgeBase.length}`);
+            postMessage({ type: 'CHUNKS_REMOVED', count: removed, total: knowledgeBase.length });
+        }
+    } else if (type === 'SYNC_CUSTOM_CHUNKS') {
+        const customChunks = e.data.chunks || [];
+        if (customChunks.length > 0) {
+            const existingIds = new Set(knowledgeBase.map(k => k.chunk.id).filter(Boolean));
+            const toAdd = customChunks.filter(c => !existingIds.has(c.id));
+            if (toAdd.length > 0) {
+                const indexed = toAdd.map(indexChunkItem);
+                knowledgeBase.unshift(...indexed);
+                console.log(`[Worker] 🔄 Synchronisation de ${toAdd.length} fragments RAG personnalisés. Total base: ${knowledgeBase.length}`);
+            }
+        }
+        postMessage({ type: 'STATUS', status: 'SYNCED', total: knowledgeBase.length });
     }
 });

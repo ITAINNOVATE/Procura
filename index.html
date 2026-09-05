@@ -71,6 +71,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- FedaPay Checkout JS -->
     <script src="https://cdn.fedapay.com/checkout.js?v=1.1.2"></script>
+    <!-- PDF.js for in-browser PDF text extraction and RAG chunking -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Mammoth.js for Word (.docx) text extraction and RAG chunking -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css?v=20260903_v43">
 </head>
@@ -987,11 +991,11 @@
 
                             <!-- Drag & Drop Zone -->
                             <div class="admin-dropzone" id="adminDropzone" onclick="document.getElementById('adminFileInput').click()">
-                                <input type="file" id="adminFileInput" accept=".pdf,.docx" style="display:none;" onchange="handleAdminFileSelected(event)">
+                                <input type="file" id="adminFileInput" accept=".pdf,.docx,.doc,.txt,.md" style="display:none;" onchange="handleAdminFileSelected(event)">
                                 <div class="dropzone-content" id="dropzoneContent">
                                     <i data-lucide="file-up" class="dropzone-icon"></i>
-                                    <div class="dropzone-text">Glissez-déposez votre fichier <strong>PDF</strong> ou <strong>DOCX</strong> ici</div>
-                                    <div class="dropzone-sub">ou <span class="text-gold">parcourez vos fichiers locaux</span> (Taille max: 50 Mo)</div>
+                                    <div class="dropzone-text">Glissez-déposez votre fichier <strong>PDF</strong>, <strong>DOCX</strong> ou <strong>TXT</strong> ici</div>
+                                    <div class="dropzone-sub">ou <span class="text-gold">parcourez vos fichiers locaux</span> (Taille max: 50 Mo — Segmentation RAG automatique)</div>
                                 </div>
                                 <div class="file-preview-box hidden" id="filePreviewBox">
                                     <i data-lucide="file-text" class="preview-icon"></i>
@@ -1308,6 +1312,6 @@
     </div>
 
     <script src="/api/app-config.js"></script>
-    <script src="script.js?v=20260904_v46"></script>
+    <script src="script.js?v=20260905_v47"></script>
 </body>
 </html>
