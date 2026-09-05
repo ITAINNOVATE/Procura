@@ -269,7 +269,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     let searchQueryCounter = 0;
 
     function updateTotalRAGChunkCounters(customTotal) {
-        const totalFormatted = (customTotal || 52464).toLocaleString('fr-FR');
+        const totalFormatted = (customTotal || 52738).toLocaleString('fr-FR');
         const chunkCardEl = document.getElementById('statCatalogChunks');
         if (chunkCardEl) chunkCardEl.textContent = totalFormatted;
         const ragLabel = document.getElementById('ragStatusLabel');
@@ -279,7 +279,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20260905_v51');
+            searchWorker = new Worker('searchWorker.js?v=20260905_v52');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') {
@@ -2179,7 +2179,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         if (currentVal) sel.value = currentVal;
     }
 
-    // ── Chargement du catalogue (Supabase en priorité, fallback JSON) ──
+    // ── Chargement du catalogue (Référence indexée + synchronisation Supabase) ──
     window.loadAndRenderDocCatalog = async function() {
         if (adminDocCatalog !== null) {
             // Déjà chargé — on re-filtre et re-rend
@@ -2191,9 +2191,25 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         const countDisplay = document.getElementById('catalogCountDisplay');
         if (countDisplay) countDisplay.innerHTML = 'Chargement du catalogue...';
 
-        // 1. Tenter Supabase avec pagination complète
+        // 1. Charger le catalogue officiel indexé (source certifiée des 1 220 documents et de leurs fragments réels)
+        let localCatalog = [];
+        const catalogMap = new Map();
         try {
-            let allData = [];
+            const res = await fetch('documents_catalog.json?v=20260905_v52');
+            if (res.ok) {
+                localCatalog = await res.json();
+                localCatalog.forEach(d => {
+                    if (d.filename) catalogMap.set(d.filename.toLowerCase(), d);
+                    if (d.title) catalogMap.set(d.title.toLowerCase(), d);
+                });
+            }
+        } catch (catErr) {
+            console.warn('[Admin] Erreur fetch documents_catalog.json:', catErr);
+        }
+
+        // 2. Tenter Supabase pour récupérer les documents supplémentaires téléversés par les admins
+        let supabaseDocs = [];
+        try {
             let offset = 0;
             const pageSize = 1000;
             let keepFetching = true;
@@ -2203,7 +2219,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                 if (res.ok) {
                     const batch = await res.json();
                     if (Array.isArray(batch) && batch.length > 0) {
-                        allData = allData.concat(batch);
+                        supabaseDocs = supabaseDocs.concat(batch);
                         if (batch.length < pageSize) {
                             keepFetching = false;
                         } else {
@@ -2213,58 +2229,70 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                         keepFetching = false;
                     }
                 } else {
-                    console.warn('[Admin] Supabase procura_documents inaccessible, fallback JSON.');
                     break;
                 }
             }
+        } catch (sbErr) {
+            console.warn('[Admin] Supabase inaccessible, utilisation du catalogue local:', sbErr);
+        }
 
-            if (allData.length > 0) {
-                // Supabase a des données — on les utilise
-                adminDocCatalog = allData.map(d => ({
+        // 3. Fusion intelligente : combiner le catalogue certifié avec les éventuels ajouts de Supabase
+        if (supabaseDocs.length > 0) {
+            const mergedList = [];
+            const seenKeys = new Set();
+
+            // Ajouter les docs Supabase en enrichissant leurs chunks avec le catalogue local si chunks == 0
+            supabaseDocs.forEach(d => {
+                const fileKey = (d.filename || '').toLowerCase();
+                const titleKey = (d.title || '').toLowerCase();
+                const localMatch = catalogMap.get(fileKey) || catalogMap.get(titleKey);
+
+                const validChunks = (d.chunks && d.chunks > 0) 
+                    ? d.chunks 
+                    : (localMatch ? localMatch.chunks : 1);
+
+                const validPreview = (d.first_page_preview && !d.first_page_preview.startsWith('['))
+                    ? d.first_page_preview
+                    : (localMatch ? localMatch.first_page_preview : `Document officiel ${d.title} (${d.category})`);
+
+                mergedList.push({
                     id: d.id,
                     title: d.title,
-                    filename: d.filename,
+                    filename: d.filename || d.title,
                     category: d.category,
-                    path: d.path || '',
-                    chunks: d.chunks || 0,
+                    path: d.path || (localMatch ? localMatch.path : ''),
+                    chunks: validChunks,
                     storage_url: d.storage_url || '',
-                    first_page_preview: d.first_page_preview || ''
-                }));
-                docSourceIsSupabase = true;
-                console.log(`[Admin] Catalogue chargé depuis Supabase (${adminDocCatalog.length} docs)`);
-                populateDocCategoryFilter();
-                const countFormatted = adminDocCatalog.length.toLocaleString('fr-FR');
-                const statEl = document.getElementById('statCatalogDocs');
-                if (statEl) statEl.textContent = countFormatted;
-                const subCountEl = document.getElementById('docSubtitleCount');
-                if (subCountEl) subCountEl.textContent = countFormatted;
-                window.renderCategoryBreakdown();
-                window.filterDocCatalog();
-                return;
-            } else if (allData.length === 0 && offset === 0) {
-                // Table vide → seeder depuis JSON
-                console.log('[Admin] Table Supabase vide → Amorçage depuis documents_catalog.json...');
-                await seedDocCatalogToSupabase();
-                return;
-            }
-        } catch (err) {
-            console.warn('[Admin] Erreur Supabase, fallback JSON:', err);
+                    first_page_preview: validPreview
+                });
+
+                if (fileKey) seenKeys.add(fileKey);
+                if (titleKey) seenKeys.add(titleKey);
+            });
+
+            // Compléter avec les documents locaux qui ne seraient pas encore dans Supabase
+            localCatalog.forEach(d => {
+                const fileKey = (d.filename || '').toLowerCase();
+                const titleKey = (d.title || '').toLowerCase();
+                if (!seenKeys.has(fileKey) && !seenKeys.has(titleKey)) {
+                    mergedList.push({
+                        ...d,
+                        chunks: d.chunks > 0 ? d.chunks : 1
+                    });
+                }
+            });
+
+            adminDocCatalog = mergedList;
+            docSourceIsSupabase = true;
+        } else {
+            // Utiliser le catalogue local avec garantie de chunks > 0
+            adminDocCatalog = localCatalog.map(d => ({
+                ...d,
+                chunks: d.chunks > 0 ? d.chunks : 1
+            }));
+            docSourceIsSupabase = false;
         }
 
-        // 2. Fallback JSON
-        try {
-            const res = await fetch('documents_catalog.json');
-            if (res.ok) {
-                adminDocCatalog = await res.json();
-                docSourceIsSupabase = false;
-                console.log(`[Admin] Catalogue chargé depuis JSON (${adminDocCatalog.length} docs)`);
-            } else {
-                adminDocCatalog = [];
-            }
-        } catch (err) {
-            console.error('[Admin] Erreur chargement JSON:', err);
-            adminDocCatalog = [];
-        }
         populateDocCategoryFilter();
         const countFormatted = adminDocCatalog.length.toLocaleString('fr-FR');
         const statEl = document.getElementById('statCatalogDocs');
