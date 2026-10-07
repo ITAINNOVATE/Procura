@@ -76,7 +76,7 @@
     <!-- Mammoth.js for Word (.docx) text extraction and RAG chunking -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css?v=20260903_v43">
+    <link rel="stylesheet" href="style.css?v=20261007_v11">
 </head>
 <body>
     <!-- Logo Grid Background (Version Initiale) -->
@@ -796,8 +796,13 @@
                 <div class="admin-brand">
                     <img src="assets/logo_procura_sans_fond.png" alt="PROCURA" class="admin-logo-img">
                     <span class="admin-title-badge"><i data-lucide="shield-check"></i> ESPACE ADMINISTRATION</span>
+                    <span class="admin-live-pulse-badge"><span class="pulse-ring"></span><span class="pulse-dot"></span> LIVE SYNC</span>
                 </div>
                 <div class="admin-header-right">
+                    <div class="admin-system-chip">
+                        <i data-lucide="cpu" style="width:14px; height:14px; color:var(--color-gold);"></i>
+                        <span>Hybride RAG &bull; 60k Chunks</span>
+                    </div>
                     <span class="admin-user-tag" id="adminUserTag"><i data-lucide="user-check"></i> support@bassentreprises.com</span>
                     <button class="admin-close-btn" onclick="closeAdminDashboard()" title="Fermer l'administration">
                         <i data-lucide="x"></i> Fermer
@@ -812,19 +817,34 @@
                     <nav class="admin-nav">
                         <button class="admin-nav-item active" onclick="switchAdminTab('audit')" id="tabBtnAudit">
                             <i data-lucide="activity"></i>
-                            <span>Audit & Suivi des Questions</span>
+                            <div class="admin-nav-text">
+                                <span class="nav-label">Audit des Questions</span>
+                                <span class="nav-sublabel">Monitoring requêtes & sources</span>
+                            </div>
                         </button>
                         <button class="admin-nav-item" onclick="switchAdminTab('docs')" id="tabBtnDocs">
                             <i data-lucide="folder-git-2"></i>
-                            <span>Base Documentaire & Upload</span>
+                            <div class="admin-nav-text">
+                                <span class="nav-label">Base Documentaire</span>
+                                <span class="nav-sublabel">1 420 docs &bull; 60 128 chunks</span>
+                            </div>
+                            <span class="nav-counter-pill" id="sideDocCountPill">1 420</span>
                         </button>
                         <button class="admin-nav-item" onclick="switchAdminTab('users')" id="tabBtnUsers">
                             <i data-lucide="users"></i>
-                            <span>Utilisateurs & Abonnements</span>
+                            <div class="admin-nav-text">
+                                <span class="nav-label">Utilisateurs & Abonnements</span>
+                                <span class="nav-sublabel">Comptes, quotas & plans</span>
+                            </div>
+                            <span class="nav-counter-pill" id="sideUserCountPill">PRO</span>
                         </button>
                         <button class="admin-nav-item" onclick="switchAdminTab('websites')" id="tabBtnWebsites">
                             <i data-lucide="globe"></i>
-                            <span>Sites Web & Sources Officielles</span>
+                            <div class="admin-nav-text">
+                                <span class="nav-label">Sources Officielles</span>
+                                <span class="nav-sublabel">ARMP, ARCOP, Bailleurs</span>
+                            </div>
+                            <span class="nav-counter-pill" id="sideWebCountPill">39</span>
                         </button>
                     </nav>
                     <div class="admin-sidebar-footer">
@@ -832,6 +852,7 @@
                             <span class="status-dot"></span>
                             <span id="ragStatusLabel">Moteur RAG : Actif (60 128 Chunks)</span>
                         </div>
+                        <div class="admin-version-tag">PROCURA v2.6 &bull; Infrastructure Souveraine</div>
                     </div>
                 </aside>
 
@@ -917,9 +938,14 @@
                                 <h2 class="admin-section-title">Répertoire & Explorateur de la Base Documentaire</h2>
                                 <p class="admin-section-subtitle">Accédez à l'intégralité des <span id="docSubtitleCount">1 420</span> textes officiels, décrets, directives de bailleurs et guides indexés dans PROCURA.</p>
                             </div>
-                            <button class="admin-btn-gold" onclick="toggleUploadDocSection()">
-                                <i data-lucide="plus-circle"></i> Ajouter un Document
-                            </button>
+                            <div style="display:flex; gap:0.75rem; align-items:center;">
+                                <button class="admin-btn-secondary" onclick="window.loadAndRenderDocCatalog(true)" title="Forcer le rechargement de la base">
+                                    <i data-lucide="refresh-cw"></i> Synchroniser Supabase
+                                </button>
+                                <button class="admin-btn-gold" onclick="toggleUploadDocSection()">
+                                    <i data-lucide="plus-circle"></i> Ajouter un Document
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Global Documentation Stats -->
@@ -1483,6 +1509,6 @@
     </div>
 
     <script src="/api/app-config.js"></script>
-    <script src="script.js?v=20261007_v10"></script>
+    <script src="script.js?v=20261007_v11"></script>
 </body>
 </html>

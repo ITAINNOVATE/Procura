@@ -2180,16 +2180,20 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     }
 
     // ── Chargement du catalogue (Référence indexée + synchronisation Supabase) ──
-    window.loadAndRenderDocCatalog = async function() {
-        if (adminDocCatalog !== null) {
+    window.loadAndRenderDocCatalog = async function(force = false) {
+        if (!force && adminDocCatalog !== null) {
             // Déjà chargé — on re-filtre et re-rend
             window.renderCategoryBreakdown();
             window.filterDocCatalog();
             return;
         }
 
+        if (force) {
+            adminDocCatalog = null;
+        }
+
         const countDisplay = document.getElementById('catalogCountDisplay');
-        if (countDisplay) countDisplay.innerHTML = 'Chargement du catalogue...';
+        if (countDisplay) countDisplay.innerHTML = 'Chargement et synchronisation du catalogue...';
 
         // 1. Charger le catalogue officiel indexé (source certifiée des 1 220 documents et de leurs fragments réels)
         let localCatalog = [];
@@ -2299,6 +2303,8 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         if (statEl) statEl.textContent = countFormatted;
         const subCountEl = document.getElementById('docSubtitleCount');
         if (subCountEl) subCountEl.textContent = countFormatted;
+        const sideDocPill = document.getElementById('sideDocCountPill');
+        if (sideDocPill) sideDocPill.textContent = countFormatted;
         window.renderCategoryBreakdown();
         window.filterDocCatalog();
     };
