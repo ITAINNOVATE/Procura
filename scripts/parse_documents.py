@@ -2,10 +2,21 @@ import os
 import sys
 import json
 import re
-import traceback
-import pymupdf
-from pypdf import PdfReader
+import time
+from pathlib import Path
 from docx import Document
+
+try:
+    import pymupdf
+    HAS_PYMUPDF = True
+except ImportError:
+    HAS_PYMUPDF = False
+
+try:
+    from pypdf import PdfReader
+    HAS_PYPDF = True
+except ImportError:
+    HAS_PYPDF = False
 
 try:
     import openpyxl
@@ -14,21 +25,28 @@ except ImportError:
     HAS_OPENPYXL = False
 
 try:
-    import winocr
-    HAS_WINOCR = True
+    import olefile
+    HAS_OLEFILE = True
 except ImportError:
-    HAS_WINOCR = False
+    HAS_OLEFILE = False
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-# Configuration
-DOCS_DIRS = ["Documents utiles", "Marchés Publics docs"]
-CHUNK_SIZE = 3000
-CHUNK_OVERLAP = 300
+DOCS_DIRS = ["Documents utiles"]
+PART_CHUNK_SIZE = 8000
+CHUNK_SIZE = 2500
+CHUNK_OVERLAP = 250
+
+def to_long_path(p):
+    """Gère les chemins longs (> 260 caractères) sous Windows."""
+    ap = os.path.abspath(str(p))
+    if os.name == 'nt' and not ap.startswith('\\\\?\\'):
+        return '\\\\?\\' + ap
+    return ap
 
 def clean_text(text):
-    """Clean text by removing excessive whitespace and normalizing separators."""
+    """Nettoie le texte en normalisant les espaces et les sauts de ligne."""
     if not text:
         return ""
     text = re.sub(r'[ \t]+', ' ', text)
@@ -37,7 +55,7 @@ def clean_text(text):
     return text.strip()
 
 def get_chunks(text, size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
-    """Split text into overlapping chunks of size characters."""
+    """Découpe un texte linéaire en tranches régulières avec chevauchement."""
     chunks = []
     if not text:
         return chunks
@@ -52,7 +70,7 @@ def get_chunks(text, size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
     return chunks
 
 def get_category(root_path):
-    """Determine category based on folder hierarchy."""
+    """Détermine la catégorie géographique ou thématique selon l'arborescence."""
     parts = os.path.normpath(root_path).split(os.sep)
     if len(parts) > 1:
         for folder_name in parts[1:]:
@@ -66,7 +84,7 @@ def get_category(root_path):
             elif "CAMEROUN" in fn_upper:
                 return "Cameroun"
             elif "CENTRAFIQUE" in fn_upper or "CENTRAFRIQUE" in fn_upper:
-                return "Centrafique"
+                return "Centrafrique"
             elif "TOGO" in fn_upper:
                 return "Togo"
             elif "MALI" in fn_upper:
@@ -105,113 +123,170 @@ def get_category(root_path):
                 return "Thématiques & Études"
             elif "CERTIFICATION" in fn_upper or "RECHERCHE" in fn_upper:
                 return "Certifications & Recherches"
-            elif "CARROUSEL" in fn_upper or "CAROUSEL" in fn_upper or "CAROUSSEL" in fn_upper or "CAROUS" in fn_upper:
+            elif "CARROUSEL" in fn_upper or "CAROUSEL" in fn_upper or "CAROUSSEL" in fn_upper:
                 return "Carrousels Pédagogiques"
             elif "AUDIT" in fn_upper and "CONTROLE" in fn_upper:
-                return "Audit et Contrôle des Finances Publiques"
+                return "Audit et Contrôle des Finances Publiques - Normes INTOSAI"
             elif "DURABILITE" in fn_upper or "DURABILITÉ" in fn_upper:
                 return "Marchés Durables"
             elif "AUTRES DOCUMENTS" in fn_upper:
                 return "Autres Documents"
     return "Général"
 
-def extract_pdf_text(file_path):
-    """Extract page-by-page text from a PDF using PyMuPDF, with pypdf and native Windows OCR fallback."""
-    pages = []
-    # 1. Primary: PyMuPDF digital text layer
+def extract_docx_semantic_chunks(file_path, file_title, category):
+    """
+    Segmentation sémantique avancée pour documents Word (.docx) :
+    - Détecte les Articles, Chapitres, Sections, Titres légaux et repères de pages.
+    - Transforme les tableaux en Markdown pour une lisibilité parfaite dans l'IA.
+    - Regroupe les paragraphes par unité sémantique sans coupure au milieu d'une phrase.
+    """
+    chunks = []
     try:
-        doc = pymupdf.open(file_path)
-        for i, page in enumerate(doc):
-            try:
-                text = page.get_text() or ""
-                cleaned = clean_text(text)
-                if cleaned:
-                    pages.append((i + 1, cleaned))
-            except Exception:
-                continue
-        if pages and sum(len(p[1]) for p in pages) > 80:
-            return pages
-    except Exception:
-        pass
-
-    # 2. Fallback: pypdf
-    try:
-        reader = PdfReader(file_path, strict=False)
-        for i, page in enumerate(reader.pages):
-            try:
-                text = page.extract_text() or ""
-                cleaned = clean_text(text)
-                if cleaned:
-                    pages.append((i + 1, cleaned))
-            except Exception:
-                continue
-        if pages and sum(len(p[1]) for p in pages) > 80:
-            return pages
-    except Exception:
-        pass
-
-    # 3. Fallback: Windows Media OCR for Scanned PDFs (Images / Photocopies)
-    if HAS_WINOCR:
-        try:
-            doc = pymupdf.open(file_path)
-            ocr_pages = []
-            for i, page in enumerate(doc):
-                try:
-                    pix = page.get_pixmap(dpi=120)
-                    pil_img = pix.pil_image()
-                    res = winocr.recognize_pil_sync(pil_img, lang='fr-FR')
-                    ocr_text = clean_text(res.get('text', ''))
-                    if ocr_text:
-                        ocr_pages.append((i + 1, ocr_text))
-                except Exception:
-                    continue
-            if ocr_pages:
-                print(f"  [OCR] ✅ {len(ocr_pages)} pages extraites par reconnaissance optique (OCR) pour {os.path.basename(file_path)}")
-                return ocr_pages
-        except Exception as ocr_err:
-            print(f"  [OCR] Erreur OCR sur {file_path}: {ocr_err}")
-
-    return pages
-
-def extract_docx_text(file_path):
-    """Extract text from a docx file as paragraphs."""
-    paragraphs = []
-    try:
-        doc = Document(file_path)
-        for p in doc.paragraphs:
-            text = p.text.strip()
-            if text:
-                paragraphs.append(text)
-        for table in doc.tables:
-            for row in table.rows:
-                row_text = " | ".join([cell.text.strip() for cell in row.cells if cell.text.strip()])
-                if row_text:
-                    paragraphs.append(row_text)
+        doc = Document(to_long_path(file_path))
     except Exception as e:
-        print(f"Error reading DOCX {file_path}: {e}")
-    return "\n".join(paragraphs)
+        print(f"⚠️ Erreur d'ouverture DOCX {file_path}: {e}")
+        return chunks
+
+    # Extraire les paragraphes et les tableaux
+    elements = []
+    for p in doc.paragraphs:
+        t = p.text.strip()
+        if not t:
+            continue
+        style = p.style.name.lower() if p.style else ""
+        elements.append(('p', t, style))
+
+    for table in doc.tables:
+        rows_txt = []
+        for row in table.rows:
+            cells = [c.text.strip().replace('\n', ' ') for c in row.cells if c.text.strip()]
+            if cells:
+                rows_txt.append(' | '.join(cells))
+        if rows_txt:
+            table_md = '\n'.join(rows_txt)
+            elements.append(('table', table_md, 'table'))
+
+    current_chapter = ""
+    current_heading = ""
+    current_buffer = []
+    current_len = 0
+
+    def flush_buffer():
+        nonlocal current_buffer, current_len
+        if not current_buffer:
+            return
+        content = "\n".join(current_buffer).strip()
+        if content:
+            parts = [file_title]
+            if current_chapter and current_chapter != current_heading:
+                parts.append(current_chapter)
+            if current_heading:
+                parts.append(current_heading)
+            chunk_title = " > ".join(parts)
+            chunks.append({
+                "title": chunk_title[:200],
+                "content": content
+            })
+        current_buffer = []
+        current_len = 0
+
+    re_article = re.compile(r'^(?:article|art\.?)\s*\d+.*', re.IGNORECASE)
+    re_chapitre = re.compile(r'^(?:chapitre|section|titre|livre)\s+[IVXLCDM\d]+.*', re.IGNORECASE)
+    re_page = re.compile(r'^===\s*Page\s+\d+\s*===', re.IGNORECASE)
+
+    for el_type, text, style in elements:
+        is_heading_style = any(h in style for h in ['heading 1', 'heading 2', 'heading 3', 'titre 1', 'titre 2'])
+        is_art = bool(re_article.match(text)) and len(text) < 130
+        is_chap = bool(re_chapitre.match(text)) and len(text) < 130
+        is_page = bool(re_page.match(text))
+
+        # Changement de chapitre ou titre majeur
+        if is_chap or (is_heading_style and len(text) < 100):
+            flush_buffer()
+            current_chapter = text
+            current_heading = text
+            current_buffer.append(text)
+            current_len = len(text)
+            continue
+
+        # Changement d'article
+        if is_art:
+            flush_buffer()
+            current_heading = text
+            current_buffer.append(text)
+            current_len = len(text)
+            continue
+
+        # Repère de page (documents issus de conversion PyMuPDF)
+        if is_page:
+            if current_len > 1500:
+                flush_buffer()
+                current_heading = text
+            current_buffer.append(text)
+            current_len += len(text)
+            continue
+
+        # Texte normal / tableau
+        current_buffer.append(text)
+        current_len += len(text)
+
+        # Taille idéale par fragment ~2 500 caractères
+        if current_len >= 2500:
+            flush_buffer()
+
+    flush_buffer()
+    return chunks
 
 def extract_doc_legacy_text(file_path):
-    """Extract text from binary .doc files via UTF-16 and ASCII heuristics."""
+    """Extrait le texte brut des fichiers Word 97-2003 (.doc)."""
     try:
-        with open(file_path, 'rb') as f:
+        if HAS_OLEFILE and olefile.isOleFile(to_long_path(file_path)):
+            ole = olefile.OleFileIO(to_long_path(file_path))
+            if ole.exists('WordDocument'):
+                stream = ole.openstream('WordDocument').read()
+                text_pieces = []
+                runs16 = re.findall(rb'(?:[\x20-\x7E\xA0-\xFF\x0A\x0D]\x00){4,}', stream)
+                for r in runs16:
+                    t = r.decode('utf-16le', errors='ignore').strip()
+                    if len(t) > 10 and any(c.isalpha() for c in t):
+                        text_pieces.append(t)
+                runs8 = re.findall(rb'[\x20-\x7E\xA0-\xFF\x0A\x0D]{5,}', stream)
+                for r in runs8:
+                    try:
+                        t = r.decode('cp1252', errors='ignore').strip()
+                        if len(t) > 10 and any(c.isalpha() for c in t):
+                            text_pieces.append(t)
+                    except Exception:
+                        pass
+                if text_pieces:
+                    seen = set()
+                    unique = []
+                    for p in text_pieces:
+                        if p not in seen:
+                            seen.add(p)
+                            unique.append(p)
+                    joined = "\n".join(unique)
+                    if len(joined) > 80:
+                        return clean_text(joined)
+
+        with open(to_long_path(file_path), 'rb') as f:
             data = f.read()
-        u16_strings = re.findall(rb'(?:[\x20-\x7E\xA0-\xFF]\x00){4,}', data)
-        parts = [s.decode('utf-16le', errors='ignore') for s in u16_strings]
+        u16 = re.findall(rb'(?:[\x20-\x7E\xA0-\xFF]\x00){4,}', data)
+        parts = [s.decode('utf-16le', errors='ignore') for s in u16]
         if not parts or sum(len(p) for p in parts) < 100:
-            ascii_strings = re.findall(rb'[\x20-\x7E\xA0-\xFF]{4,}', data)
-            parts = [s.decode('latin1', errors='ignore') for s in ascii_strings]
+            ascii_s = re.findall(rb'[\x20-\x7E\xA0-\xFF]{4,}', data)
+            parts = [s.decode('latin1', errors='ignore') for s in ascii_s]
         return clean_text("\n".join(parts))
     except Exception as e:
-        print(f"Error reading legacy DOC {file_path}: {e}")
+        print(f"⚠️ Erreur lecture legacy DOC {file_path}: {e}")
         return ""
 
 def extract_xlsx_text(file_path):
-    """Extract text from XLSX sheets."""
+    """Extrait le texte des feuilles de calcul XLSX."""
     if not HAS_OPENPYXL:
         return ""
     try:
-        wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+        wb = openpyxl.load_workbook(to_long_path(file_path), read_only=True, data_only=True)
         lines = []
         for sheetname in wb.sheetnames:
             ws = wb[sheetname]
@@ -222,40 +297,66 @@ def extract_xlsx_text(file_path):
                     lines.append(" | ".join(vals))
         return clean_text("\n".join(lines))
     except Exception as e:
-        print(f"Error reading XLSX {file_path}: {e}")
+        print(f"⚠️ Erreur lecture XLSX {file_path}: {e}")
         return ""
 
+def extract_pdf_fallback(file_path):
+    """Extraction texte pour tout PDF résiduel."""
+    pages = []
+    if HAS_PYMUPDF:
+        try:
+            doc = pymupdf.open(to_long_path(file_path))
+            for i, p in enumerate(doc):
+                t = clean_text(p.get_text() or "")
+                if t:
+                    pages.append((i + 1, t))
+            if pages:
+                return pages
+        except Exception:
+            pass
+    if HAS_PYPDF:
+        try:
+            reader = PdfReader(to_long_path(file_path), strict=False)
+            for i, p in enumerate(reader.pages):
+                t = clean_text(p.extract_text() or "")
+                if t:
+                    pages.append((i + 1, t))
+        except Exception:
+            pass
+    return pages
+
 def main():
-    print("🚀 Démarrage de l'indexation complète des documents...")
+    print("=" * 75)
+    print("🚀 PROCURA - SEGMENTATION SÉMANTIQUE & RÉ-INDEXATION COMPLÈTE")
+    print("📌 Traitement prioritaire des documents Word (.docx) avec segmentation juridique")
+    print("=" * 75)
+
+    start_time = time.time()
     knowledge_base = []
     chunk_counter = 0
-    processed_files = {}  # filename -> catalog item
-    file_counter = 0
+    processed_files = {}
 
-    # Scanner les répertoires principaux
-    for DOCS_DIR in DOCS_DIRS:
-        if not os.path.exists(DOCS_DIR):
-            print(f"Répertoire {DOCS_DIR} introuvable, ignoré.")
+    for docs_dir in DOCS_DIRS:
+        if not os.path.exists(docs_dir):
             continue
 
-        print(f"\n📂 Analyse du répertoire : {DOCS_DIR}...")
+        print(f"\n📂 Analyse et segmentation dans : {docs_dir}...")
 
-        for root, dirs, files in os.walk(DOCS_DIR):
+        for root, dirs, files in os.walk(docs_dir):
             category = get_category(root)
             for file in files:
                 ext = os.path.splitext(file)[1].lower()
 
-                # Ignorer les fichiers temporaires système Office
+                # Ignorer les fichiers temporaires système
                 if file.startswith("~$") or file.startswith("._") or file == "Thumbs.db":
                     continue
-
-                # Ignorer les images pures du scan RAG (gardées hors catalogue ou non textuelles)
+                # Ignorer les images pures hors texte
                 if ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]:
                     continue
 
                 file_path = os.path.join(root, file)
 
-                # Si le fichier est déjà traité (dédoublonnage par nom), on conserve la première occurrence
+                # Dédoublonnage par nom de fichier
                 if file in processed_files:
                     continue
 
@@ -273,126 +374,118 @@ def main():
                 file_chunks = []
 
                 try:
-                    if ext == ".pdf":
-                        pages = extract_pdf_text(file_path)
-                        for page_num, page_text in pages:
-                            chunks = get_chunks(page_text)
-                            for idx, chunk in enumerate(chunks):
-                                file_chunks.append({
-                                    "id": f"chunk_{chunk_counter}",
-                                    "source": file,
-                                    "path": file_path.replace("\\", "/"),
-                                    "category": category,
-                                    "title": f"{file} - Page {page_num}" if len(chunks) == 1 else f"{file} - Page {page_num} (Partie {idx + 1})",
-                                    "content": chunk
-                                })
-                                chunk_counter += 1
-                        if pages and not catalog_entry["first_page_preview"]:
-                            catalog_entry["first_page_preview"] = pages[0][1][:300]
+                    # 1. Documents Word DOCX (priorité absolue)
+                    if ext == ".docx":
+                        raw_chunks = extract_docx_semantic_chunks(file_path, title, category)
+                        for idx, rc in enumerate(raw_chunks):
+                            file_chunks.append({
+                                "id": f"chunk_{chunk_counter}",
+                                "source": file,
+                                "path": file_path.replace("\\", "/"),
+                                "category": category,
+                                "title": rc["title"],
+                                "content": rc["content"]
+                            })
+                            chunk_counter += 1
+                        if raw_chunks:
+                            catalog_entry["first_page_preview"] = raw_chunks[0]["content"][:350]
 
-                    elif ext == ".docx":
-                        full_text = extract_docx_text(file_path)
-                        cleaned = clean_text(full_text)
-                        if cleaned:
-                            chunks = get_chunks(cleaned)
-                            for idx, chunk in enumerate(chunks):
-                                file_chunks.append({
-                                    "id": f"chunk_{chunk_counter}",
-                                    "source": file,
-                                    "path": file_path.replace("\\", "/"),
-                                    "category": category,
-                                    "title": f"{file} - Partie {idx + 1}",
-                                    "content": chunk
-                                })
-                                chunk_counter += 1
-                            catalog_entry["first_page_preview"] = cleaned[:300]
-
+                    # 2. Documents Word legacy .doc
                     elif ext == ".doc":
                         doc_text = extract_doc_legacy_text(file_path)
                         if doc_text:
                             chunks = get_chunks(doc_text)
-                            for idx, chunk in enumerate(chunks):
+                            for idx, c in enumerate(chunks):
                                 file_chunks.append({
                                     "id": f"chunk_{chunk_counter}",
                                     "source": file,
                                     "path": file_path.replace("\\", "/"),
                                     "category": category,
-                                    "title": f"{file} - Partie {idx + 1}",
-                                    "content": chunk
+                                    "title": f"{title} - Partie {idx + 1}",
+                                    "content": c
                                 })
                                 chunk_counter += 1
-                            catalog_entry["first_page_preview"] = doc_text[:300]
+                            catalog_entry["first_page_preview"] = doc_text[:350]
 
+                    # 3. Tableurs Excel (.xlsx, .xls)
                     elif ext in [".xlsx", ".xls"]:
-                        if ext == ".xlsx":
-                            xlsx_text = extract_xlsx_text(file_path)
-                            if xlsx_text:
-                                chunks = get_chunks(xlsx_text)
-                                for idx, chunk in enumerate(chunks):
-                                    file_chunks.append({
-                                        "id": f"chunk_{chunk_counter}",
-                                        "source": file,
-                                        "path": file_path.replace("\\", "/"),
-                                        "category": category,
-                                        "title": f"{file} - Tableur (Partie {idx + 1})",
-                                        "content": chunk
-                                    })
-                                    chunk_counter += 1
-                                catalog_entry["first_page_preview"] = xlsx_text[:300]
+                        xlsx_text = extract_xlsx_text(file_path)
+                        if xlsx_text:
+                            chunks = get_chunks(xlsx_text)
+                            for idx, c in enumerate(chunks):
+                                file_chunks.append({
+                                    "id": f"chunk_{chunk_counter}",
+                                    "source": file,
+                                    "path": file_path.replace("\\", "/"),
+                                    "category": category,
+                                    "title": f"{title} - Données Tableur (Partie {idx + 1})",
+                                    "content": c
+                                })
+                                chunk_counter += 1
+                            catalog_entry["first_page_preview"] = xlsx_text[:350]
 
+                    # 4. Fichiers texte (.rtf, .txt)
                     elif ext in [".rtf", ".txt"]:
                         try:
-                            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                            with open(to_long_path(file_path), "r", encoding="utf-8", errors="ignore") as f:
                                 t = clean_text(f.read())
                             if t:
                                 chunks = get_chunks(t)
-                                for idx, chunk in enumerate(chunks):
+                                for idx, c in enumerate(chunks):
                                     file_chunks.append({
                                         "id": f"chunk_{chunk_counter}",
                                         "source": file,
                                         "path": file_path.replace("\\", "/"),
                                         "category": category,
-                                        "title": f"{file} - Texte",
-                                        "content": chunk
+                                        "title": f"{title} - Texte (Partie {idx + 1})",
+                                        "content": c
                                     })
                                     chunk_counter += 1
-                                catalog_entry["first_page_preview"] = t[:300]
+                                catalog_entry["first_page_preview"] = t[:350]
                         except Exception:
                             pass
 
-                except Exception as e:
-                    print(f"⚠️ Erreur lors du traitement de {file}: {e}")
+                    # 5. Fichiers PDF résiduels
+                    elif ext == ".pdf":
+                        pages = extract_pdf_fallback(file_path)
+                        for page_num, page_text in pages:
+                            chunks = get_chunks(page_text)
+                            for idx, c in enumerate(chunks):
+                                file_chunks.append({
+                                    "id": f"chunk_{chunk_counter}",
+                                    "source": file,
+                                    "path": file_path.replace("\\", "/"),
+                                    "category": category,
+                                    "title": f"{title} - Page {page_num}" if len(chunks) == 1 else f"{title} - Page {page_num} (Partie {idx + 1})",
+                                    "content": c
+                                })
+                                chunk_counter += 1
+                        if pages:
+                            catalog_entry["first_page_preview"] = pages[0][1][:350]
 
-                # Si le document n'a pas de couche texte directe (PDF scanné, tableur brut, etc.),
-                # créer un chunk sémantique enrichi pour qu'il soit 100% indexable par l'IA et affiche des chunks
+                except Exception as ex:
+                    print(f"⚠️ Erreur lors du traitement de {file}: {ex}")
+
+                # Si aucun fragment n'a pu être extrait (document scanné sans texte, etc.),
+                # créer un fragment sémantique enrichi afin que le document soit trouvable
                 if len(file_chunks) == 0:
-                    clean_title = title.replace("_", " ").replace("-", " ").strip()
-                    meta_info = ""
-                    if ext == ".pdf":
-                        try:
-                            doc_pdf = pymupdf.open(file_path)
-                            num_p = len(doc_pdf)
-                            meta_info = f" Document composé de {num_p} page(s) officielle(s)."
-                        except Exception:
-                            pass
-
+                    clean_t = title.replace("_", " ").replace("-", " ").strip()
                     doc_content = (
-                        f"Texte officiel / Décret / Règlement : {clean_title}.\n"
-                        f"Catégorie : {category}.\n"
+                        f"Document officiel de référence : {clean_t}.\n"
+                        f"Catégorie juridique : {category}.\n"
                         f"Fichier source : {file}.\n"
-                        f"Chemin documentaire : {file_path.replace(os.sep, '/')}.{meta_info}\n"
-                        f"Ce document juridique et réglementaire est officiellement enregistré sous la juridiction / bailleur {category} dans la base de données PROCURA."
+                        f"Ce document est répertorié dans la base documentaire PROCURA pour la juridiction ou le domaine {category}."
                     )
                     file_chunks.append({
                         "id": f"chunk_{chunk_counter}",
                         "source": file,
                         "path": file_path.replace("\\", "/"),
                         "category": category,
-                        "title": f"{clean_title} - Document Officiel ({category})",
+                        "title": f"{clean_t} - Référence Officielle ({category})",
                         "content": doc_content
                     })
                     chunk_counter += 1
-                    catalog_entry["first_page_preview"] = doc_content[:300]
+                    catalog_entry["first_page_preview"] = doc_content[:350]
 
                 catalog_entry["chunks"] = len(file_chunks)
                 if not catalog_entry["first_page_preview"]:
@@ -400,95 +493,27 @@ def main():
 
                 processed_files[file] = catalog_entry
                 knowledge_base.extend(file_chunks)
-                file_counter += 1
 
-    # ── Scanner également les documents déposés à la racine du projet ──
-    print(f"\n📂 Analyse des documents à la racine du projet...")
-    for file in os.listdir("."):
-        if not os.path.isfile(file):
-            continue
-        ext = os.path.splitext(file)[1].lower()
-        if ext not in [".pdf", ".docx", ".doc", ".rtf", ".xlsx", ".xls"]:
-            continue
-        if file.startswith("~$") or file.startswith("._") or file in processed_files:
-            continue
-
-        file_path = file
-        category = "Autres Documents"
-        f_upper = file.upper()
-        if "COMMERCIAL" in f_upper or "EMPLOI" in f_upper:
-            category = "Aide Emploi et Recrutement"
-        elif "SITE" in f_upper or "WEB" in f_upper:
-            category = "Général"
-        elif "CATALOGUE" in f_upper:
-            category = "Général"
-
-        title = file.replace("_", " ").replace("-", " ").rsplit(".", 1)[0].strip()
-        catalog_entry = {
-            "filename": file,
-            "title": title,
-            "category": category,
-            "path": file_path.replace("\\", "/"),
-            "chunks": 0,
-            "first_page_preview": ""
-        }
-        file_chunks = []
-
-        try:
-            if ext == ".pdf":
-                pages = extract_pdf_text(file_path)
-                for page_num, page_text in pages:
-                    chunks = get_chunks(page_text)
-                    for idx, chunk in enumerate(chunks):
-                        file_chunks.append({
-                            "id": f"chunk_{chunk_counter}",
-                            "source": file,
-                            "path": file_path.replace("\\", "/"),
-                            "category": category,
-                            "title": f"{file} - Page {page_num}" if len(chunks) == 1 else f"{file} - Page {page_num} (Partie {idx + 1})",
-                            "content": chunk
-                        })
-                        chunk_counter += 1
-                if pages:
-                    catalog_entry["first_page_preview"] = pages[0][1][:300]
-            elif ext == ".docx":
-                full_text = extract_docx_text(file_path)
-                cleaned = clean_text(full_text)
-                if cleaned:
-                    chunks = get_chunks(cleaned)
-                    for idx, chunk in enumerate(chunks):
-                        file_chunks.append({
-                            "id": f"chunk_{chunk_counter}",
-                            "source": file,
-                            "path": file_path.replace("\\", "/"),
-                            "category": category,
-                            "title": f"{file} - Partie {idx + 1}",
-                            "content": chunk
-                        })
-                        chunk_counter += 1
-                    catalog_entry["first_page_preview"] = cleaned[:300]
-        except Exception as e:
-            print(f"⚠️ Erreur lors du traitement de {file}: {e}")
-
-        catalog_entry["chunks"] = len(file_chunks)
-        if not catalog_entry["first_page_preview"]:
-            catalog_entry["first_page_preview"] = f"Document {title}"
-
-        processed_files[file] = catalog_entry
-        knowledge_base.extend(file_chunks)
-        file_counter += 1
-
-    # ── Sauvegarde de la base de connaissances (Knowledge Base Chunks) ──
-    PART_CHUNK_SIZE = 8000
+    # Sauvegarde des parties de la base de connaissances
     total_chunks = len(knowledge_base)
     num_parts = (total_chunks + PART_CHUNK_SIZE - 1) // PART_CHUNK_SIZE if total_chunks > 0 else 1
+
+    print(f"\n💾 Sauvegarde de {total_chunks} chunks sémantiques en {num_parts} parties...")
 
     for i in range(num_parts):
         part_data = knowledge_base[i*PART_CHUNK_SIZE : (i+1)*PART_CHUNK_SIZE]
         part_filename = f"knowledge_base_part_{i+1}.json"
         with open(part_filename, "w", encoding="utf-8") as f:
             json.dump(part_data, f, ensure_ascii=False, indent=2)
-        print(f"✅ Partie {i+1}/{num_parts} sauvegardée dans {part_filename} ({os.path.getsize(part_filename) / 1024 / 1024:.2f} MB)")
+        sz_mb = os.path.getsize(part_filename) / (1024 * 1024)
+        print(f"  ✅ {part_filename} : {len(part_data)} chunks ({sz_mb:.2f} MB)")
+
+    # Nettoyer les anciennes parties orphelines éventuelles (ex: si avant il y avait 8 parties et maintenant 5)
+    part_idx = num_parts + 1
+    while os.path.exists(f"knowledge_base_part_{part_idx}.json"):
+        os.remove(f"knowledge_base_part_{part_idx}.json")
+        print(f"  🧹 Ancienne partie knowledge_base_part_{part_idx}.json supprimée.")
+        part_idx += 1
 
     # Metadata
     meta = {
@@ -498,19 +523,20 @@ def main():
     with open("knowledge_base_meta.json", "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
 
-    # ── Générer documents_catalog.json (100% des documents uniques) ──
+    # Catalogue des documents
     catalog = list(processed_files.values())
     catalog.sort(key=lambda x: (x["category"], x["title"]))
     with open("documents_catalog.json", "w", encoding="utf-8") as f:
         json.dump(catalog, f, ensure_ascii=False, indent=2)
 
-    print(f"\n========================================================")
-    print(f"🎉 SUCCÈS COMPLET :")
-    print(f" - Documents uniques dans le catalogue Admin : {len(catalog)}")
-    print(f" - Chunks RAG générés pour l'IA : {total_chunks}")
-    print(f" - Fichier documents_catalog.json mis à jour.")
-    print(f"========================================================")
+    total_time = time.time() - start_time
+    print("\n" + "=" * 75)
+    print("🎉 INDEXATION SÉMANTIQUE TERMINÉE AVEC SUCCÈS !")
+    print(f" - Documents uniques indexés dans le catalogue : {len(catalog)}")
+    print(f" - Chunks sémantiques RAG créés                : {total_chunks}")
+    print(f" - Fichiers de partition générés               : {num_parts} parties")
+    print(f" - Temps total d'exécution                     : {total_time/60:.1f} minutes")
+    print("=" * 75)
 
 if __name__ == "__main__":
     main()
-

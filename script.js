@@ -2195,7 +2195,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         let localCatalog = [];
         const catalogMap = new Map();
         try {
-            const res = await fetch('documents_catalog.json?v=20260905_v53');
+            const res = await fetch('documents_catalog.json?v=20261007_v10');
             if (res.ok) {
                 localCatalog = await res.json();
                 localCatalog.forEach(d => {
