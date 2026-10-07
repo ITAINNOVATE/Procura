@@ -90,7 +90,7 @@ async function loadKnowledgeBase() {
         
         isLoaded = true;
         console.log("[Worker] Pré-indexation terminée ! Prêt pour la recherche.");
-        postMessage({ type: 'STATUS', status: 'READY' });
+        postMessage({ type: 'STATUS', status: 'READY', total: rawBase.length });
 
     } catch (err) {
         console.error("[Worker] Erreur lors du chargement:", err);

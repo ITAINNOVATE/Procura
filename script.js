@@ -269,7 +269,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     let searchQueryCounter = 0;
 
     function updateTotalRAGChunkCounters(customTotal) {
-        const totalFormatted = (customTotal || 55144).toLocaleString('fr-FR');
+        const totalFormatted = (customTotal || 60128).toLocaleString('fr-FR');
         const chunkCardEl = document.getElementById('statCatalogChunks');
         if (chunkCardEl) chunkCardEl.textContent = totalFormatted;
         const ragLabel = document.getElementById('ragStatusLabel');
@@ -279,7 +279,7 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20260905_v53');
+            searchWorker = new Worker('searchWorker.js?v=20261007_v10');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') {
