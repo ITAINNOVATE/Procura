@@ -100,7 +100,7 @@ async function loadKnowledgeBase() {
 }
 
 // Fonction de recherche améliorée (BM25 + RAG hybride + Filtrage intelligent)
-function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 10) {
+function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 14) {
     if (!isLoaded || !query) return "";
 
     const queryWords = normalize(query);
