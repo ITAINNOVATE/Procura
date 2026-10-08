@@ -99,8 +99,8 @@ async function loadKnowledgeBase() {
     }
 }
 
-// Fonction de recherche améliorée (BM25 + RAG hybride + Filtrage intelligent)
-function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 14) {
+// Fonction de recherche améliorée (BM25 + RAG hybride + Filtrage intelligent ultra-rapide)
+function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 20) {
     if (!isLoaded || !query) return "";
 
     const queryWords = normalize(query);
@@ -115,16 +115,18 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 1
     const genericWords = ['marches', 'publics', 'passation', 'republique', 'decret', 'loi', 'code', 'reglement', 'procedures'];
     const specificTokens = queryWords.filter(w => w.length >= 3 && !genericWords.includes(w));
 
-    // Recherche si des acronymes ou termes spécifiques de la question existent dans la base
-    const missingSpecificTokens = [];
-    specificTokens.forEach(token => {
-        const foundInCorpus = knowledgeBase.some(item => 
-            item.titleRawLower.includes(token) || item.contentRawLower.includes(token) || item.categoryRaw.includes(token)
-        );
-        if (!foundInCorpus) {
-            missingSpecificTokens.push(token);
-        }
-    });
+    // Pré-calcul de l'intention Aide Emploi / CV
+    const employmentTerms = ['emploi', 'recrutement', 'cv', 'entretien', 'lettre', 'motivation', 'embauche', 'salaries', 'contrat', 'travail', 'recruteur', 'poste', 'linkedin', 'rqth'];
+    const isEmploymentQuery = rawQueryWords.some(w => employmentTerms.includes(w));
+
+    // Pré-calcul de l'intention conceptuelle / comparaison
+    const definitionTerms = ['difference', 'differentes', 'comparaison', 'distinction', 'versus', 'entre', 'explication', 'signifie', 'definition', 'definir', 'erreur', 'erreurs', 'risques'];
+    const isDefinitionQuery = rawQueryWords.some(w => definitionTerms.includes(w)) || rawQueryWords.includes('quoi') || rawQueryWords.includes('comment') || rawQueryWords.includes('cest');
+
+    // Pré-calcul pour le croisement pays
+    const countries = ["benin", "niger", "congo", "cameroun", "centrafique", "centrafrique", "ivoire", "rci", "togo", "mali", "tchad", "burkina", "senegal", "gabon", "guinee", "mauritanie", "rdc", "uemoa"];
+    const queryHasCountry = queryWords.some(w => countries.includes(w));
+    const queryRawNorm = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
     // 2. Filtrer selon le plan d'accès
     let filteredBase = knowledgeBase.filter(item => {
@@ -148,12 +150,16 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 1
         return true;
     });
 
-    // 3. Calcul du score pour chaque document
+    const numQueryWords = queryWords.length;
+
+    // 3. Calcul du score optimisé (boucle ultra-véloce)
     const scoredChunks = filteredBase.map(item => {
         let score = 0;
         let categoryMatch = false;
 
-        queryWords.forEach(word => {
+        for (let i = 0; i < numQueryWords; i++) {
+            const word = queryWords[i];
+
             let matchesCategory = false;
             if (item.categoryNorm.includes(word)) {
                 matchesCategory = true;
@@ -164,39 +170,45 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 1
             }
 
             if (matchesCategory) {
-                score += 150; // Boost si la question nomme le pays ou le bailleur
+                score += 150;
                 categoryMatch = true;
             }
 
-            // Title match
+            // Title match direct
             let titleMatches = 0;
-            item.titleNorm.forEach(w => {
-                if (w === word) titleMatches += 40;
-                else if (w.includes(word) || word.includes(w)) titleMatches += 15;
-            });
+            const tLen = item.titleNorm.length;
+            for (let j = 0; j < tLen; j++) {
+                const tw = item.titleNorm[j];
+                if (tw === word) titleMatches += 40;
+                else if (tw.includes(word) || word.includes(tw)) titleMatches += 15;
+            }
             score += Math.min(titleMatches, 120);
 
-            // Content match
+            // Content match direct
             let contentMatches = 0;
-            item.contentNorm.forEach(w => {
-                if (w === word) contentMatches += 4;
-                else if (w.includes(word)) contentMatches += 1;
-            });
+            const cLen = item.contentNorm.length;
+            for (let k = 0; k < cLen; k++) {
+                const cw = item.contentNorm[k];
+                if (cw === word) contentMatches += 4;
+                else if (cw.includes(word)) contentMatches += 1;
+            }
             score += Math.min(contentMatches, 50);
-        });
+        }
 
-        // Multi-word title match boost (e.g. "addendum" and "avenant" both in title)
-        const titleMatchCount = queryWords.filter(w => item.titleRawLower.includes(w)).length;
+        // Multi-word title match boost
+        let titleMatchCount = 0;
+        for (let i = 0; i < numQueryWords; i++) {
+            if (item.titleRawLower.includes(queryWords[i])) titleMatchCount++;
+        }
         if (titleMatchCount >= 2) {
             score += titleMatchCount * 150;
-        } else if (titleMatchCount === 1 && queryWords.length <= 3) {
+        } else if (titleMatchCount === 1 && numQueryWords <= 3) {
             score += 100;
         }
 
         // Exact query substring match bonus
-        const queryRawNorm = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         if (item.contentRawLower.includes(queryRawNorm)) {
-            score += 150;
+            score += 160;
         }
 
         // Boost chronologique pour les révisions / éditions récentes (ex: 2025 vs 2023 vs 2018)
@@ -208,7 +220,7 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 1
                 if (maxYear >= 2025) {
                     score += 350;
                     if (item.titleRawLower.includes('regulations') || item.titleRawLower.includes('reglement') || item.titleRawLower.includes('revisions')) {
-                        score += 200; // Extra boost for 2025 regulation summary files
+                        score += 200;
                     }
                 }
                 else if (maxYear >= 2023) score += 150;
@@ -217,10 +229,7 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 1
             }
         }
 
-        // Boost pour l'intention conceptuelle / comparaison / carrousels pédagogiques
-        const definitionTerms = ['difference', 'differentes', 'comparaison', 'distinction', 'versus', 'entre', 'explication', 'signifie', 'definition', 'definir', 'erreur', 'erreurs', 'risques'];
-        const isDefinitionQuery = rawQueryWords.some(w => definitionTerms.includes(w)) || rawQueryWords.includes('quoi') || rawQueryWords.includes('comment') || rawQueryWords.includes('cest');
-
+        // Boost pour carrousels pédagogiques
         const isCarrouselChunk = item.categoryRaw.includes('carrousel') || item.titleRawLower.includes('carrousel');
         const isOffTopicCarrousel = isCarrouselChunk && (
             item.titleRawLower.includes('cv') ||
@@ -234,39 +243,28 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 1
         );
 
         if (isCarrouselChunk || item.titleRawLower.includes('difference') || item.titleRawLower.includes('erreurs')) {
-            // Vérifier que le carrousel est réellement pertinent pour la question
             const carrouselRelevant = queryWords.some(w =>
                 item.titleRawLower.includes(w) || item.contentRawLower.includes(w)
             );
             if (carrouselRelevant) {
                 score += 150;
-                if (isDefinitionQuery) {
-                    score += 250;
-                }
+                if (isDefinitionQuery) score += 250;
             } else if (isOffTopicCarrousel) {
-                // Pénaliser les carrousels hors-sujet (CV, emploi) si la question n'est pas sur l'emploi
                 score -= 100;
             }
         }
 
-        // Boost pour l'intention Aide Emploi, CV et Recrutement
-        const employmentTerms = ['emploi', 'recrutement', 'cv', 'entretien', 'lettre', 'motivation', 'embauche', 'salaries', 'contrat', 'travail', 'recruteur', 'poste', 'linkedin', 'rqth'];
-        const isEmploymentQuery = rawQueryWords.some(w => employmentTerms.includes(w));
-
+        // Boost pour l'intention Aide Emploi / CV
         if (item.categoryRaw.includes('emploi') || item.categoryRaw.includes('recrutement') || item.titleRawLower.includes('cv') || item.titleRawLower.includes('entretien')) {
             if (isEmploymentQuery) {
                 score += 180;
             } else {
-                // Pénaliser fortement les documents emploi/CV pour les questions non-emploi
                 score -= 80;
             }
         }
 
         // Pénalité de croisement de pays
-        const countries = ["benin", "niger", "congo", "cameroun", "centrafique", "centrafrique", "ivoire", "rci", "togo", "mali", "tchad", "burkina", "senegal", "gabon", "guinee", "mauritanie", "rdc", "uemoa"];
-        const queryHasCountry = queryWords.some(w => countries.includes(w));
         const chunkHasCountry = countries.some(c => item.categoryRaw.includes(c));
-
         if (queryHasCountry && chunkHasCountry && !categoryMatch) {
             score -= 200;
         }
