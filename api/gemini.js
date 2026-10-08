@@ -25,8 +25,16 @@ export default async function handler(req) {
       body: JSON.stringify(payload)
     });
 
+    if (!response.ok) {
+      const errText = await response.text();
+      return new Response(errText, {
+        status: response.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     return new Response(response.body, {
-      status: response.status,
+      status: 200,
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -34,6 +42,9 @@ export default async function handler(req) {
       }
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 400 });
+    return new Response(JSON.stringify({ error: { message: err.message } }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }

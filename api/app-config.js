@@ -5,11 +5,13 @@ export default async function handler(req, res) {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
 
   const fedapayPubKey = process.env.FEDAPAY_PUBLIC_KEY || 'pk_live_bKEHs4ybJfYaaDTgZlOoLv0O';
+  const geminiKey = process.env.GEMINI_API_KEY || 'AIzaSyCVs5sMgmx4Xx1OIneq0XI-Zj4CvHQnLes';
 
   const jsContent = `window.CONFIG = {
     SUPABASE_URL: "${url}",
     SUPABASE_ANON_KEY: "${key}",
-    FEDAPAY_PUBLIC_KEY: "${fedapayPubKey}"
+    FEDAPAY_PUBLIC_KEY: "${fedapayPubKey}",
+    GEMINI_API_KEY: "${geminiKey}"
   };`;
 
   res.setHeader('Content-Type', 'application/javascript');

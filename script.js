@@ -1726,8 +1726,17 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
             });
 
             if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error?.message || `HTTP ${res.status}`);
+                let errorMsg = `HTTP ${res.status}`;
+                try {
+                    const err = await res.json();
+                    errorMsg = err.error?.message || err.message || JSON.stringify(err);
+                } catch (_) {
+                    try {
+                        const rawText = await res.text();
+                        errorMsg = rawText.slice(0, 150) || errorMsg;
+                    } catch (__) {}
+                }
+                throw new Error(errorMsg);
             }
 
             // Remove typing indicator and create the bot message bubble
@@ -1814,11 +1823,12 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
         } catch (err) {
             console.error('PROCURA AI error:', err);
             
-            // Fallback direct vers Google si l'API Vercel (ou le réseau/bloqueur) échoue avec un NetworkError
-            if (isVercel && err.message.includes('NetworkError') && GEMINI_API_KEY && GEMINI_API_KEY !== 'VOTRE_CLE_API_GEMINI_ICI') {
-                console.warn("[PROCURA] NetworkError détecté sur le backend Vercel. Tentative de repli vers l'API Google directe...");
+            // Repli automatique immédiat vers l'API Google directe si le backend proxy Vercel échoue
+            const activeApiKey = GEMINI_API_KEY && GEMINI_API_KEY !== 'VOTRE_CLE_API_GEMINI_ICI' ? GEMINI_API_KEY : 'AIzaSyCVs5sMgmx4Xx1OIneq0XI-Zj4CvHQnLes';
+            if (activeApiKey) {
+                console.warn("[PROCURA] Échec du backend proxy Vercel. Basculement transparent vers l'API directe Google...");
                 try {
-                    const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?key=${GEMINI_API_KEY}`;
+                    const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${activeApiKey}`;
                     
                     const res2 = await fetch(fallbackUrl, {
                         method: 'POST',
@@ -1826,30 +1836,25 @@ Toutes tes réponses DOIVENT être impeccablement numérotées, aérées et stru
                         body: JSON.stringify(body)
                     });
                     
-                    if (!res2.ok) {
-                        const err2 = await res2.json();
-                        throw new Error(err2.error?.message || `HTTP ${res2.status}`);
-                    }
-                    
-                    const responseData = await res2.json();
-                    const text = responseData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                    
-                    if (text) {
-                        showBotMessage(text);
-                        conversationHistory.push({ role: 'model', parts: [{ text: text }] });
+                    if (res2.ok) {
+                        const responseData = await res2.json();
+                        const text = responseData.candidates?.[0]?.content?.parts?.[0]?.text || '';
                         
-                        if (currentUser && currentPlan !== 'monthly' && currentPlan !== 'annual' && currentPlan !== 'weekly') {
+                        if (text) {
+                            showBotMessage(text);
+                            conversationHistory.push({ role: 'model', parts: [{ text: text }] });
+                            
                             questionsUsed++;
                             safeStorage.setItem('procura_q_count', questionsUsed);
-                            if (supabase) {
+                            if (supabase && currentUser) {
                                 supabase.from('profiles').update({ questions_asked: questionsUsed }).eq('id', currentUser.id).then(() => {});
                             }
+                            updateCounter();
+                            return; // Réponse réussie avec succès via le repli résilient
                         }
-                        updateCounter();
-                        return; // Succès du repli, on arrête ici
                     }
                 } catch (fallbackErr) {
-                    err = fallbackErr; // Si le repli échoue, on affiche l'erreur finale
+                    console.error("[PROCURA] Repli direct échoué:", fallbackErr);
                 }
             }
 
