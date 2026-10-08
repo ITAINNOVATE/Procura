@@ -2190,12 +2190,30 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
             console.warn('[Admin] Erreur fetch documents_catalog.json:', catErr);
         }
 
+        // Récupérer les documents personnalisés sauvegardés localement
+        let savedCustomDocs = [];
+        try {
+            savedCustomDocs = JSON.parse(safeStorage.getItem('procura_custom_documents') || '[]');
+            if (!Array.isArray(savedCustomDocs)) savedCustomDocs = [];
+        } catch (_) {}
+
         // Si nous avons le catalogue local, l'afficher IMMÉDIATEMENT (zéro attente)
-        if (localCatalog.length > 0) {
-            adminDocCatalog = localCatalog.map(d => ({
-                ...d,
-                chunks: d.chunks > 0 ? d.chunks : 1
-            }));
+        if (localCatalog.length > 0 || savedCustomDocs.length > 0) {
+            const initialList = [...savedCustomDocs];
+            const seenInitialKeys = new Set(savedCustomDocs.map(d => (d.filename || d.title || '').toLowerCase()));
+
+            localCatalog.forEach(d => {
+                const k1 = (d.filename || '').toLowerCase();
+                const k2 = (d.title || '').toLowerCase();
+                if (!seenInitialKeys.has(k1) && !seenInitialKeys.has(k2)) {
+                    initialList.push({
+                        ...d,
+                        chunks: d.chunks > 0 ? d.chunks : 1
+                    });
+                }
+            });
+
+            adminDocCatalog = initialList;
             docSourceIsSupabase = false;
             populateDocCategoryFilter();
             const countFormatted = adminDocCatalog.length.toLocaleString('fr-FR');
@@ -2281,6 +2299,17 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                 }
             });
 
+            // Compléter avec les documents personnalisés locaux si absents de Supabase
+            savedCustomDocs.forEach(d => {
+                const fileKey = (d.filename || '').toLowerCase();
+                const titleKey = (d.title || '').toLowerCase();
+                if (!seenKeys.has(fileKey) && !seenKeys.has(titleKey)) {
+                    mergedList.unshift(d);
+                    if (fileKey) seenKeys.add(fileKey);
+                    if (titleKey) seenKeys.add(titleKey);
+                }
+            });
+
             adminDocCatalog = mergedList;
             docSourceIsSupabase = true;
             populateDocCategoryFilter();
@@ -2294,10 +2323,14 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
             window.renderCategoryBreakdown();
             window.filterDocCatalog();
         } else if (!adminDocCatalog || adminDocCatalog.length === 0) {
-            adminDocCatalog = localCatalog.map(d => ({
-                ...d,
-                chunks: d.chunks > 0 ? d.chunks : 1
-            }));
+            const fallbackList = [...savedCustomDocs];
+            localCatalog.forEach(d => {
+                fallbackList.push({
+                    ...d,
+                    chunks: d.chunks > 0 ? d.chunks : 1
+                });
+            });
+            adminDocCatalog = fallbackList;
             docSourceIsSupabase = false;
             populateDocCategoryFilter();
             window.renderCategoryBreakdown();
@@ -2583,11 +2616,15 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                 if (masterIdx !== -1) adminDocCatalog.splice(masterIdx, 1);
             }
 
-            // Supprimer ses chunks personnalisés du stockage et du Worker RAG
+            // Supprimer ses chunks personnalisés et sa notice du stockage et du Worker RAG
             try {
                 const currentCustomChunks = JSON.parse(safeStorage.getItem('procura_custom_chunks') || '[]');
                 const remainingChunks = currentCustomChunks.filter(c => c.title !== docToRemove.title && (!docToRemove.filename || !c.path?.includes(docToRemove.filename)));
                 safeStorage.setItem('procura_custom_chunks', remainingChunks);
+
+                const currentCustomDocs = JSON.parse(safeStorage.getItem('procura_custom_documents') || '[]');
+                const remainingDocs = currentCustomDocs.filter(d => d.id !== id && d.title !== docToRemove.title && d.filename !== docToRemove.filename);
+                safeStorage.setItem('procura_custom_documents', remainingDocs);
             } catch (_) {}
 
             if (searchWorker) {
@@ -2675,12 +2712,10 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
         }
     }
 
+    // ── Segmentation sémantique fine pour le RAG (Articles, Décrets, Sections, Paragraphes) ──
     function chunkDocumentText(text, docTitle, category, docPath) {
-        const CHUNK_SIZE = 1200;
-        const CHUNK_OVERLAP = 200;
         const chunks = [];
-        
-        const cleanText = (text || '').replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ');
+        const cleanText = (text || '').replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').trim();
         if (!cleanText || cleanText.length < 30) {
             return [{
                 id: 'chunk_custom_' + Date.now() + '_0',
@@ -2690,43 +2725,109 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                 path: docPath || docTitle
             }];
         }
-        
-        let start = 0;
+
+        // 1. Découpage sémantique juridique : recherche de frontières structurelles (Article, Chapitre, Titre, Section, Décret, Sous-titres)
+        const structuralRegex = /(?:\n\s*|^)(?=(?:Article\s+\d+|Art\.\s*\d+|CHAPITRE\s+[IVXLCDM\d]+|TITRE\s+[IVXLCDM\d]+|SECTION\s+[IVXLCDM\d]+|DÉCRET\s+N°|DECRET\s+N°|ARRÊTÉ\s+N°|ARRETE\s+N°|CLAUSE\s+\d+|SECTION\s+\d+))/gi;
+
+        let rawSections = cleanText.split(structuralRegex);
+        // Si aucune coupure juridique explicite n'a été trouvée ou texte court, découpage par double saut de ligne
+        if (rawSections.length <= 1) {
+            rawSections = cleanText.split(/\n\s*\n+/);
+        }
+
+        const TARGET_CHUNK_SIZE = 1200;
+        const MIN_CHUNK_SIZE = 180;
+        let currentChunkText = '';
+        let currentSectionTitle = docTitle;
         let chunkIndex = 0;
-        
-        while (start < cleanText.length) {
-            let end = start + CHUNK_SIZE;
-            
-            if (end < cleanText.length) {
-                const nextBreak = cleanText.lastIndexOf('\n', end);
-                const nextPeriod = cleanText.lastIndexOf('. ', end);
-                if (nextBreak > start + CHUNK_SIZE / 2) {
-                    end = nextBreak + 1;
-                } else if (nextPeriod > start + CHUNK_SIZE / 2) {
-                    end = nextPeriod + 2;
+
+        for (let i = 0; i < rawSections.length; i++) {
+            const section = rawSections[i].trim();
+            if (!section) continue;
+
+            // Détecter si la section commence par un titre d'article ou de section
+            const titleMatch = section.match(/^(Article\s+\d+|Art\.\s*\d+|CHAPITRE\s+[IVXLCDM\d]+[^:\n]*|TITRE\s+[IVXLCDM\d]+[^:\n]*|SECTION\s+[IVXLCDM\d]+[^:\n]*|DÉCRET\s+N°[^:\n]*|DECRET\s+N°[^:\n]*)/i);
+            if (titleMatch) {
+                currentSectionTitle = `${docTitle} > ${titleMatch[1].trim()}`;
+            }
+
+            // Si la section seule dépasse la taille cible, on la segmente proprement par phrases
+            if (section.length > TARGET_CHUNK_SIZE) {
+                if (currentChunkText.trim().length >= MIN_CHUNK_SIZE) {
+                    chunks.push({
+                        id: `chunk_custom_${Date.now()}_${chunkIndex++}`,
+                        title: currentSectionTitle,
+                        category: category,
+                        content: currentChunkText.trim(),
+                        path: docPath || docTitle
+                    });
+                    currentChunkText = '';
+                }
+
+                // Découpe par phrases ou retours à la ligne
+                const sentenceMatches = section.split(/(?<=[.!?])\s+(?=[A-Z0-9À-ÖØ-ß])/);
+                let sentenceChunk = '';
+                for (let s = 0; s < sentenceMatches.length; s++) {
+                    const sentence = sentenceMatches[s].trim();
+                    if (!sentence) continue;
+                    if ((sentenceChunk + ' ' + sentence).length > TARGET_CHUNK_SIZE && sentenceChunk.length >= MIN_CHUNK_SIZE) {
+                        chunks.push({
+                            id: `chunk_custom_${Date.now()}_${chunkIndex++}`,
+                            title: currentSectionTitle,
+                            category: category,
+                            content: sentenceChunk.trim(),
+                            path: docPath || docTitle
+                        });
+                        // Recouvrement léger pour continuité
+                        const lastFewWords = sentenceChunk.split(' ').slice(-15).join(' ');
+                        sentenceChunk = lastFewWords + ' ' + sentence;
+                    } else {
+                        sentenceChunk = sentenceChunk ? (sentenceChunk + ' ' + sentence) : sentence;
+                    }
+                }
+                if (sentenceChunk.trim().length > 30) {
+                    chunks.push({
+                        id: `chunk_custom_${Date.now()}_${chunkIndex++}`,
+                        title: currentSectionTitle,
+                        category: category,
+                        content: sentenceChunk.trim(),
+                        path: docPath || docTitle
+                    });
                 }
             } else {
-                end = cleanText.length;
-            }
-            
-            const chunkContent = cleanText.slice(start, end).trim();
-            if (chunkContent.length > 30) {
-                chunks.push({
-                    id: `chunk_custom_${Date.now()}_${chunkIndex++}`,
-                    title: docTitle,
-                    category: category,
-                    content: chunkContent,
-                    path: docPath || docTitle
-                });
-            }
-            
-            start = end - CHUNK_OVERLAP;
-            if (start <= 0 || start >= cleanText.length || end >= cleanText.length) {
-                break;
+                // Assembler avec le chunk en cours jusqu'à atteindre TARGET_CHUNK_SIZE
+                if ((currentChunkText + '\n\n' + section).length > TARGET_CHUNK_SIZE && currentChunkText.length >= MIN_CHUNK_SIZE) {
+                    chunks.push({
+                        id: `chunk_custom_${Date.now()}_${chunkIndex++}`,
+                        title: currentSectionTitle,
+                        category: category,
+                        content: currentChunkText.trim(),
+                        path: docPath || docTitle
+                    });
+                    currentChunkText = section;
+                } else {
+                    currentChunkText = currentChunkText ? (currentChunkText + '\n\n' + section) : section;
+                }
             }
         }
-        
-        return chunks;
+
+        if (currentChunkText.trim().length > 30) {
+            chunks.push({
+                id: `chunk_custom_${Date.now()}_${chunkIndex++}`,
+                title: currentSectionTitle,
+                category: category,
+                content: currentChunkText.trim(),
+                path: docPath || docTitle
+            });
+        }
+
+        return chunks.length > 0 ? chunks : [{
+            id: 'chunk_custom_' + Date.now() + '_0',
+            title: docTitle,
+            category: category,
+            content: cleanText.slice(0, TARGET_CHUNK_SIZE),
+            path: docPath || docTitle
+        }];
     }
 
     // ── UPLOAD RÉEL VERS SUPABASE & SEGMENTATION RAG EN DIRECT ────────────────
@@ -2754,6 +2855,33 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
         if (previewBox) previewBox.classList.add('hidden');
         if (dropzoneContent) dropzoneContent.classList.remove('hidden');
     };
+
+    // Support natif Drag & Drop sur la zone admin
+    const adminDropzoneEl = document.getElementById('adminDropzone');
+    if (adminDropzoneEl) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+            adminDropzoneEl.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                adminDropzoneEl.style.borderColor = 'var(--color-gold, #d4af37)';
+                adminDropzoneEl.style.background = 'rgba(212, 175, 55, 0.12)';
+            }, false);
+        });
+        ['dragleave', 'drop'].forEach(eventName => {
+            adminDropzoneEl.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                adminDropzoneEl.style.borderColor = '';
+                adminDropzoneEl.style.background = '';
+            }, false);
+        });
+        adminDropzoneEl.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length > 0) {
+                window.handleAdminFileSelected({ target: { files: dt.files } });
+            }
+        }, false);
+    }
 
     window.processAdminDocUpload = async function() {
         const category = document.getElementById('docCategorySelect').value;
@@ -2847,9 +2975,20 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                 }
             }
 
-            // 6. Ajouter en tête du catalogue en mémoire
+            // 6. Ajouter en tête du catalogue en mémoire et persister localement
             const memDoc = { ...newDoc, id: insertedId || ('local_' + Date.now()) };
             if (adminDocCatalog) adminDocCatalog.unshift(memDoc);
+
+            try {
+                const currentCustomDocs = JSON.parse(safeStorage.getItem('procura_custom_documents') || '[]');
+                const filteredDocs = currentCustomDocs.filter(d => d.title !== title && d.filename !== selectedAdminFile.name);
+                filteredDocs.unshift(memDoc);
+                safeStorage.setItem('procura_custom_documents', filteredDocs);
+            } catch (cdErr) {
+                console.warn('[Upload] Erreur safeStorage custom documents:', cdErr);
+            }
+
+            populateDocCategoryFilter();
 
             // 7. Feedback UI clair à l'administrateur
             if (alertEl) {
