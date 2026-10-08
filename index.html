@@ -826,9 +826,9 @@
                             <i data-lucide="folder-git-2"></i>
                             <div class="admin-nav-text">
                                 <span class="nav-label">Base Documentaire</span>
-                                <span class="nav-sublabel" id="sideDocSublabel">1 420 docs &bull; 60 128 chunks</span>
+                                <span class="nav-sublabel" id="sideDocSublabel">1 474 docs &bull; 70 260 chunks</span>
                             </div>
-                            <span class="nav-counter-pill" id="sideDocCountPill">1 420</span>
+                            <span class="nav-counter-pill" id="sideDocCountPill">1 474</span>
                         </button>
                         <button class="admin-nav-item" onclick="switchAdminTab('users')" id="tabBtnUsers">
                             <i data-lucide="users"></i>
@@ -850,7 +850,7 @@
                     <div class="admin-sidebar-footer">
                         <div class="sys-status">
                             <span class="status-dot"></span>
-                            <span id="ragStatusLabel">Moteur RAG : Actif (60 128 Chunks)</span>
+                            <span id="ragStatusLabel">Moteur RAG : Actif (70 260 Chunks)</span>
                         </div>
                         <div class="admin-version-tag">PROCURA v2.6 &bull; Infrastructure Souveraine</div>
                     </div>
@@ -936,7 +936,7 @@
                         <div class="tab-header-row">
                             <div>
                                 <h2 class="admin-section-title">Répertoire & Explorateur de la Base Documentaire</h2>
-                                <p class="admin-section-subtitle">Accédez à l'intégralité des <span id="docSubtitleCount">1 420</span> textes officiels, décrets, directives de bailleurs et guides indexés dans PROCURA.</p>
+                                <p class="admin-section-subtitle">Accédez à l'intégralité des <span id="docSubtitleCount">1 474</span> textes officiels, décrets, directives de bailleurs et guides indexés dans PROCURA.</p>
                             </div>
                             <div style="display:flex; gap:0.75rem; align-items:center;">
                                 <button class="admin-btn-secondary" onclick="window.loadAndRenderDocCatalog(true)" title="Forcer le rechargement de la base">
@@ -953,14 +953,14 @@
                             <div class="admin-stat-card">
                                 <div class="stat-icon-box gold"><i data-lucide="folder-check"></i></div>
                                 <div class="stat-data">
-                                    <span class="stat-value" id="statCatalogDocs">1 420</span>
+                                    <span class="stat-value" id="statCatalogDocs">1 474</span>
                                     <span class="stat-label">Documents Officiels Indexés</span>
                                 </div>
                             </div>
                             <div class="admin-stat-card">
                                 <div class="stat-icon-box blue"><i data-lucide="layers"></i></div>
                                 <div class="stat-data">
-                                    <span class="stat-value" id="statCatalogChunks">60 128</span>
+                                    <span class="stat-value" id="statCatalogChunks">70 260</span>
                                     <span class="stat-label">Fragments (Chunks RAG)</span>
                                 </div>
                             </div>
@@ -1049,7 +1049,7 @@
                                 <input type="text" id="docSearchInput" placeholder="Rechercher par titre, mot-clé, loi, décret, carrousel..." oninput="filterDocCatalog()">
                             </div>
                             <select id="docCategoryFilter" onchange="filterDocCatalog()" class="admin-select" style="flex:1;">
-                                <option value="">Tous les répertoires (1 420 documents)</option>
+                                <option value="">Tous les répertoires (1 474 documents)</option>
                                 <optgroup label="── PAYS D'AFRIQUE ──">
                                     <option value="Bénin">Bénin (30)</option>
                                     <option value="Burkina Faso">Burkina Faso (90)</option>
@@ -1509,6 +1509,6 @@
     </div>
 
     <script src="/api/app-config.js"></script>
-    <script src="script.js?v=20261008_v16"></script>
+    <script src="script.js?v=20261008_v17"></script>
 </body>
 </html>
