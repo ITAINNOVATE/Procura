@@ -1671,6 +1671,11 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
             parts: [{ text: userMessage }]
         });
 
+        // Maintenir un historique glissant (max 6 messages / 3 tours) pour préserver le quota de tokens d'entrée
+        if (conversationHistory.length > 6) {
+            conversationHistory = conversationHistory.slice(-6);
+        }
+
         // ── Vérification de l'accès au contenu selon le plan ──────
         const isSupportAdmin = currentUser && currentUser.email && currentUser.email.toLowerCase().trim() === 'support@bassentreprises.com';
         const currentPlan = isSupportAdmin ? 'annual' : (userProfile ? (userProfile.plan || 'free') : 'free');
@@ -1851,10 +1856,18 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                 role: 'model',
                 parts: [{ text: fullText }]
             });
+            if (conversationHistory.length > 6) {
+                conversationHistory = conversationHistory.slice(-6);
+            }
             chatInput.focus({ preventScroll: true });
 
         } catch (err) {
             console.error('PROCURA AI error:', err);
+
+            // Retirer le message utilisateur non répondu pour ne pas polluer l'historique lors d'un nouvel essai
+            if (conversationHistory.length > 0 && conversationHistory[conversationHistory.length - 1].role === 'user') {
+                conversationHistory.pop();
+            }
             
             // Repli automatique immédiat vers l'API Google directe si le backend proxy Vercel échoue
             const activeApiKey = GEMINI_API_KEY && GEMINI_API_KEY !== 'VOTRE_CLE_API_GEMINI_ICI' ? GEMINI_API_KEY : 'AIzaSyCVs5sMgmx4Xx1OIneq0XI-Zj4CvHQnLes';
@@ -1875,7 +1888,9 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                         
                         if (text) {
                             showBotMessage(text);
+                            conversationHistory.push({ role: 'user', parts: [{ text: userMessage }] });
                             conversationHistory.push({ role: 'model', parts: [{ text: text }] });
+                            if (conversationHistory.length > 6) conversationHistory = conversationHistory.slice(-6);
                             
                             questionsUsed++;
                             safeStorage.setItem('procura_q_count', questionsUsed);
@@ -1891,9 +1906,22 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                 }
             }
 
-            showBotMessage(
-                `## ⚠️ Erreur de connexion\n\nImpossible de joindre le service PROCURA AI.\n\n**Détail :** ${err.message}\n\n---\n💡 Désactivez votre bloqueur de publicité ou contactez Bass Consulting.`
+            const isQuotaError = err.message && (
+                err.message.toLowerCase().includes('quota') ||
+                err.message.includes('429') ||
+                err.message.toLowerCase().includes('rate') ||
+                err.message.toLowerCase().includes('resourceexhausted')
             );
+
+            if (isQuotaError) {
+                showBotMessage(
+                    `## ⏳ Quota temporaire atteint (Rate Limit)\n\nL'API a reçu un volume important de texte sur une courte durée et a temporairement suspendu les requêtes.\n\n**Détail :** ${err.message}\n\n---\n💡 **Veuillez patienter 20 à 30 secondes** puis reposez votre question.`
+                );
+            } else {
+                showBotMessage(
+                    `## ⚠️ Erreur de connexion\n\nImpossible de joindre le service PROCURA AI.\n\n**Détail :** ${err.message}\n\n---\n💡 Désactivez votre bloqueur de publicité ou contactez Bass Consulting.`
+                );
+            }
         }
     }
 

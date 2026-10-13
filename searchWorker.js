@@ -100,7 +100,7 @@ async function loadKnowledgeBase() {
 }
 
 // Fonction de recherche améliorée (BM25 + RAG hybride + Filtrage intelligent ultra-rapide)
-function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 20) {
+function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6) {
     if (!isLoaded || !query) return "";
 
     const queryWords = normalize(query);
@@ -280,14 +280,22 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 2
         .slice(0, limit)
         .map(r => r.chunk);
 
-    // 4. Formater le contexte transmis à l'IA
+    // 4. Formater le contexte transmis à l'IA (optimisé pour préserver les quotas de tokens)
     let contextMarkdown = "\n\n<context>\nVoici des extraits documentaires et carrousels pertinents issus de la base officielle :\n\n";
 
+    const MAX_CONTEXT_CHARS = 16000;
+    let currentChars = 0;
+
     if (results.length > 0) {
-        results.forEach((chunk, index) => {
-            contextMarkdown += `--- DOCUMENT ${index + 1} : ${chunk.title} [Catégorie: ${chunk.category}] ---\n`;
-            contextMarkdown += `${chunk.content}\n\n`;
-        });
+        for (let i = 0; i < results.length; i++) {
+            const chunk = results[i];
+            const piece = `--- DOCUMENT ${i + 1} : ${chunk.title} [Catégorie: ${chunk.category}] ---\n${chunk.content}\n\n`;
+            if (currentChars + piece.length > MAX_CONTEXT_CHARS && i >= 2) {
+                break;
+            }
+            contextMarkdown += piece;
+            currentChars += piece.length;
+        }
     }
 
     contextMarkdown += "</context>";
