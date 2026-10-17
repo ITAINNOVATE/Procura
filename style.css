@@ -752,6 +752,45 @@ textarea::placeholder {
     margin: 1rem 0;
 }
 
+/* Liens hypertextes et sources officielles citées */
+.message.bot .message-content a {
+    color: var(--color-navy);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--color-gold);
+    text-underline-offset: 3px;
+    transition: all 0.2s ease;
+}
+.message.bot .message-content a:hover {
+    color: var(--color-gold);
+}
+
+.message.bot .message-content .chat-source-link {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(197, 160, 89, 0.12);
+    color: var(--color-navy) !important;
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(197, 160, 89, 0.4);
+    text-decoration: none !important;
+    font-size: 0.9em;
+    font-weight: 600;
+    margin: 2px 2px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.message.bot .message-content .chat-source-link:hover {
+    background: var(--color-gold);
+    color: #ffffff !important;
+    border-color: var(--color-gold);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(197, 160, 89, 0.25);
+}
+.message.bot .message-content .chat-source-link svg {
+    stroke: currentColor;
+}
+
 /* Streaming cursor effect */
 .message-content.streaming::after {
     content: '▍';

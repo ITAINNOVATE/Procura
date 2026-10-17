@@ -351,11 +351,17 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
         }
     }
 
-    // Lancer l'initialisation du Worker de manière fluide après l'affichage initial du site
+    // Lancer l'initialisation du Worker et du référentiel des sites officiels de manière fluide
     if (window.requestIdleCallback) {
-        requestIdleCallback(() => initSearchWorker(), { timeout: 1000 });
+        requestIdleCallback(() => {
+            initSearchWorker();
+            initOfficialWebsitesReference();
+        }, { timeout: 1000 });
     } else {
-        setTimeout(() => initSearchWorker(), 300);
+        setTimeout(() => {
+            initSearchWorker();
+            initOfficialWebsitesReference();
+        }, 300);
     }
 
     // Fonction de recherche asynchrone appelant le Worker
@@ -1659,12 +1665,116 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
         // Clean any remaining raw stray asterisks
         html = html.replace(/\*/g, '');
 
+        // Links: [label](url)
+        html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="chat-source-link"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:4px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>$1</a>');
+
         // Paragraphs & line breaks
         html = html
             .replace(/\n\n/g, '</p><p>')
             .replace(/\n/g, '<br>');
 
         return `<p>${html}</p>`;
+    }
+
+    // ── Référentiel des Sites Web Officiels (Interconnexion RAG & Réponse IA) ──
+    async function initOfficialWebsitesReference() {
+        if (adminWebsitesList && adminWebsitesList.length > 0) return adminWebsitesList;
+        try {
+            const local = safeStorage.getItem('procura_custom_websites');
+            if (local && local !== 'undefined' && local !== 'null') {
+                const parsed = JSON.parse(local);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    adminWebsitesList = parsed;
+                    return adminWebsitesList;
+                }
+            }
+            const res = await fetch('official_websites.json?v=20261017_v18');
+            if (res.ok) {
+                adminWebsitesList = await res.json();
+                safeStorage.setItem('procura_custom_websites', adminWebsitesList);
+            }
+        } catch (e) {
+            console.warn('[Websites] Échec initialisation des sites officiels pour le RAG:', e);
+        }
+        return adminWebsitesList || [];
+    }
+
+    function getRelevantOfficialWebsitesPrompt(userMessage, retrievedContextText = '') {
+        if (!adminWebsitesList || !adminWebsitesList.length) return '';
+
+        const fullText = (userMessage + ' ' + (retrievedContextText || '')).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const scored = [];
+
+        adminWebsitesList.forEach(site => {
+            if (!site.url) return;
+            const country = (site.country || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            const name = (site.name || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            const cat = (site.category || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+            let score = 0;
+
+            // 1. Détection par pays spécifique
+            if (country && country !== 'afrique' && country !== 'international' && country !== 'uemoa' && country !== 'cedeao') {
+                if (fullText.includes(country)) score += 20;
+            } else if (country === 'uemoa' && fullText.includes('uemoa')) {
+                score += 15;
+            } else if (country === 'cedeao' && (fullText.includes('cedeao') || fullText.includes('ecowas'))) {
+                score += 15;
+            }
+
+            // 2. Détection par nom ou acronyme d'institution
+            if (name && fullText.includes(name)) score += 25;
+
+            // Bailleurs & institutions
+            if (fullText.includes('banque mondiale') || fullText.includes('world bank')) {
+                if (name.includes('banque mondiale') || name.includes('world bank')) score += 30;
+            }
+            if (fullText.includes('bad') || fullText.includes('afdb') || fullText.includes('banque africaine')) {
+                if (name.includes('bad') || name.includes('afdb')) score += 30;
+            }
+            if (fullText.includes('boad') || fullText.includes('banque ouest africaine')) {
+                if (name.includes('boad')) score += 30;
+            }
+            if (fullText.includes('bid') || fullText.includes('isdb') || fullText.includes('banque islamique')) {
+                if (name.includes('bid') || name.includes('isdb')) score += 30;
+            }
+            if (fullText.includes('afd') || fullText.includes('agence francaise')) {
+                if (name.includes('afd')) score += 30;
+            }
+
+            // Régulateurs ARMP / ARCOP
+            if (fullText.includes('armp') && name.includes('armp')) score += 10;
+            if (fullText.includes('arcop') && name.includes('arcop')) score += 10;
+            if (fullText.includes('recours') || fullText.includes('crd') || fullText.includes('contentieux') || fullText.includes('litige')) {
+                if (cat.includes('regulation') || cat.includes('armp') || cat.includes('arcop')) score += 8;
+            }
+
+            if (score > 0) {
+                scored.push({ site, score });
+            }
+        });
+
+        // Si aucun pays spécifique n'est ciblé, proposer les portails de référence panafricains et généraux
+        if (scored.length === 0) {
+            const defaults = adminWebsitesList.filter(s => 
+                s.url && (s.name.includes('Bass Consulting') || s.name.includes('Banque Mondiale') || s.name.includes('BOAD'))
+            ).slice(0, 2);
+            defaults.forEach(s => scored.push({ site: s, score: 1 }));
+        }
+
+        const topSites = scored
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 3)
+            .map(x => x.site);
+
+        if (!topSites.length) return '';
+
+        let prompt = "\n\n🌐 PORTAILS OFFICIELS ET SITES WEB VÉRIFIÉS DE RÉFÉRENCE (À CITER SYSTÉMATIQUEMENT) :\n";
+        prompt += "Ces sites web officiels sont les portails étatiques et institutionnels audités et vérifiés par Bass Consulting pour cette zone/matière. Tu DOIS impérativement t'y référer et INCLURE ces liens hypertextes cliquables au format markdown [Nom du Portail](URL) dans ta réponse (dans l'analyse juridique ou dans les démarches concrètes/recommandations) afin que le décideur puisse vérifier directement les avis officiels, décisions de justice ou formulaires types en ligne :\n";
+        topSites.forEach(s => {
+            prompt += `- [${s.name}](${s.url}) : ${s.category || 'Portail officiel'} (${s.country || 'Afrique'}) — ${s.description || 'Portail de vérification'}\n`;
+        });
+        return prompt;
     }
 
     // ── Gemini API — Streaming ──────────────────────────────────
@@ -1706,6 +1816,12 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
         // Recherche du contexte pertinent dans la base locale (RAG) avec Web Worker
         const retrievedContext = await searchKnowledgeAsync(userMessage);
         let dynamicSystemPrompt = SYSTEM_PROMPT;
+
+        // Intégration des portails officiels de vérification certifiés (Solution 1)
+        const relevantWebsitesBlock = getRelevantOfficialWebsitesPrompt(userMessage, retrievedContext);
+        if (relevantWebsitesBlock) {
+            dynamicSystemPrompt += relevantWebsitesBlock;
+        }
 
         // Enregistrer automatiquement la question dans le Journal d'Audit Admin
         if (typeof window.logQueryToAudit === 'function') {
