@@ -1769,8 +1769,8 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
 
         if (!topSites.length) return '';
 
-        let prompt = "\n\n🌐 PORTAILS OFFICIELS ET SITES WEB VÉRIFIÉS DE RÉFÉRENCE (À CITER SYSTÉMATIQUEMENT) :\n";
-        prompt += "Ces sites web officiels sont les portails étatiques et institutionnels audités et vérifiés par Bass Consulting pour cette zone/matière. Tu DOIS impérativement t'y référer et INCLURE ces liens hypertextes cliquables au format markdown [Nom du Portail](URL) dans ta réponse (dans l'analyse juridique ou dans les démarches concrètes/recommandations) afin que le décideur puisse vérifier directement les avis officiels, décisions de justice ou formulaires types en ligne :\n";
+        let prompt = "\n\n🌐 SITES WEB ET PORTAILS OFFICIELS (SOURCE SECONDAIRE — EN COMPLÉMENT SI NÉCESSAIRE) :\n";
+        prompt += "Ces portails officiels interviennent STRICTEMENT EN 2e PRIORITÉ, à titre de complément pratique (pour vérifier les avis récents en direct, télécharger un formulaire ou introduire une procédure dématérialisée). La DOCUMENTATION OFFICIELLE indexée ci-dessus prime toujours et constitue ta source juridique n°1. Tu peux mentionner ces liens en fin d'analyse ou dans tes recommandations pratiques sous la forme [Nom du Portail](URL) si cela apporte un complément utile au décideur :\n";
         topSites.forEach(s => {
             prompt += `- [${s.name}](${s.url}) : ${s.category || 'Portail officiel'} (${s.country || 'Afrique'}) — ${s.description || 'Portail de vérification'}\n`;
         });
@@ -1815,13 +1815,8 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
 
         // Recherche du contexte pertinent dans la base locale (RAG) avec Web Worker
         const retrievedContext = await searchKnowledgeAsync(userMessage);
-        let dynamicSystemPrompt = SYSTEM_PROMPT;
-
-        // Intégration des portails officiels de vérification certifiés (Solution 1)
         const relevantWebsitesBlock = getRelevantOfficialWebsitesPrompt(userMessage, retrievedContext);
-        if (relevantWebsitesBlock) {
-            dynamicSystemPrompt += relevantWebsitesBlock;
-        }
+        let dynamicSystemPrompt = SYSTEM_PROMPT;
 
         // Enregistrer automatiquement la question dans le Journal d'Audit Admin
         if (typeof window.logQueryToAudit === 'function') {
@@ -1832,23 +1827,34 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
         if (queryAboutBailleur && !allowsBailleurs) {
             dynamicSystemPrompt += `\n\n⚠️ INSTRUCTION SPÉCIALE — RESTRICTION DE PLAN : L'utilisateur est abonné au plan "${currentPlanLabel}" qui ne comprend PAS l'accès aux documents des Institutions Financières Internationales. Notre base documentaire couvre : Banque Mondiale, BAD, BID (IsDB), AFD et BOAD — mais uniquement à partir du Plan Mensuel ou Annuel. Tu DOIS informer l'utilisateur poliment de cette limitation et l'inviter à upgrader son plan pour accéder à ces ressources. Propose-lui de reformuler sa question sur les réglementations nationales (ARMP Bénin, ARCOP Niger, ANRMP CI, etc.) qui sont incluses dans son plan actuel. N'invente aucune information sur les bailleurs.`;
         }
-        // Cas 2 : Contexte documentaire trouvé
+        // Cas 2 : Contexte documentaire trouvé (PRIORITÉ 1)
         else if (retrievedContext) {
+            // 1ère Priorité : La documentation textuelle officielle indexée
             dynamicSystemPrompt += `\n\n${retrievedContext}`;
-            dynamicSystemPrompt += `\n\n🎯 DIRECTIVES DE RÉPONSE EXPERTE :
-1. Analyse la question et utilise les extraits documentaires et carrousels ci-dessus comme base de référence prioritaire.
-2. Développe une réponse complète, claire, pédagogique et directement opérationnelle pour le professionnel.
-3. Reste parfaitement dans le cadre de la question posée (zéro hors-sujet).
-4. Cite les sources applicables (lois, décrets, directives de bailleurs ou carrousels pédagogiques Bass Consulting).
-5. Propose des recommandations pratiques concrètes signées Bass Consulting.`;
+
+            // 2e Priorité : Complément des sites web officiels si nécessaire
+            if (relevantWebsitesBlock) {
+                dynamicSystemPrompt += relevantWebsitesBlock;
+            }
+
+            dynamicSystemPrompt += `\n\n🎯 DIRECTIVES DE RÉPONSE EXPERTE (HIÉRARCHIE STRICTE DES SOURCES) :
+1. PRIORITÉ 1 ABSOLUE (DOCUMENTATION OFFICIELLE) : Ton analyse juridique, tes citations d'articles, tes délais et tes règles de procédure DOIVENT impérativement et prioritairement reposer sur les extraits documentaires ci-dessus (lois, décrets, directives de bailleurs, carrousels Bass Consulting).
+2. PRIORITÉ 2 (COMPLÉMENT SITES WEB SI NÉCESSAIRE) : Les portails officiels listés ci-dessus interviennent UNIQUEMENT EN COMPLÉMENT pour orienter le professionnel vers les portails de dématérialisation, les avis récents ou les formulaires types en ligne. Tu peux insérer ces liens cliquables [Nom](URL) en fin de réponse ou dans tes démarches opérationnelles si cela apporte une valeur ajoutée concrète.
+3. Développe une réponse complète, claire, pédagogique et directement opérationnelle pour le professionnel.
+4. Reste parfaitement dans le cadre de la question posée (zéro hors-sujet).
+5. Fournis des recommandations pratiques concrètes signées Bass Consulting.`;
         }
         // Cas 3 : Contexte documentaire général
         else {
+            if (relevantWebsitesBlock) {
+                dynamicSystemPrompt += relevantWebsitesBlock;
+            }
+
             dynamicSystemPrompt += `\n\n🎯 DIRECTIVES DE RÉPONSE EXPERTE :
 1. Réponds avec rigueur, pédagogie et clarté en mobilisant tes compétences expertes en commande publique, droit des marchés publics et doctrine de Bass Consulting.
 2. Définis clairement les sigles, notions, procédures ou comparaisons demandées. Si un sigle a un sens sectoriel particulier (santé, infrastructures, informatique), explicite-le et mets-le en perspective avec les systèmes généraux de passation (SIGMAP, STEP, e-Procurement).
 3. Reste parfaitement dans le cadre de la question posée (zéro hors-sujet).
-4. Fournis des recommandations pratiques concrètes signées Bass Consulting.`;
+4. Fournis des recommandations pratiques concrètes signées Bass Consulting, complétées si nécessaire par les liens des portails officiels utiles.`;
         }
 
         const isVercel = !isLocalhost;
