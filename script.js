@@ -1,10 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Global Error Diagnostic ---
+    // --- Global Error Diagnostic (sans alert bloquant en production) ---
     window.onerror = function(message, source, lineno, colno, error) {
-        console.error("Global captured error:", error);
-        // Format for readability
-        const cleanSource = source ? source.substring(source.lastIndexOf('/') + 1) : 'inconnu';
-        alert("⚠️ [PROCURA AI - Diagnostique] " + message + "\nFichier : " + cleanSource + " (Ligne " + lineno + ")");
+        console.error("[PROCURA AI Diagnostic]", error || message, "at", source, "line", lineno);
         return false;
     };
 
@@ -164,6 +161,15 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
 
     // Base de connaissances locale (RAG client-side)
     let knowledgeBase = null;
+    let adminDocCatalog = null;       // tableau actif (Supabase ou JSON)
+    let filteredDocCatalog = [];
+    let currentDocCatalogPage = 1;
+    const DOCS_PAGE_SIZE = 35;
+    let docSourceIsSupabase = false;  // true si on lit depuis Supabase
+    let adminUsersList = [];
+    let filteredAdminUsers = [];
+    let adminWebsitesList = [];
+    let filteredWebsitesList = [];
 
 
     // ── Freemium — Compteur de questions ──────────────────────────────────────
@@ -308,7 +314,7 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20261008_v17');
+            searchWorker = new Worker('searchWorker.js?v=20261017_v18');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') {
@@ -2148,13 +2154,8 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
         });
     };
 
-    let adminDocCatalog = null;       // tableau actif (Supabase ou JSON)
-    let filteredDocCatalog = [];
-    let currentDocCatalogPage = 1;
-    const DOCS_PAGE_SIZE = 35;
     const PROCURA_SUPABASE_URL = 'https://yhutkoevddnydlvoqeqj.supabase.co';
     const PROCURA_ANON_KEY = 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
-    let docSourceIsSupabase = false;  // true si on lit depuis Supabase
 
     // ── Helpers REST Supabase direct (contourne le proxy Vercel pour les appels admin) ──
     async function sbDocFetch(method, urlSuffix, body) {
@@ -3134,8 +3135,6 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
     };
 
     // ── GESTION DES UTILISATEURS & ABONNEMENTS (ADMIN) ────────────────────────
-    let adminUsersList = [];
-    let filteredAdminUsers = [];
 
     const PLAN_LABELS_ADMIN = {
         'free':       'GRATUIT (Découverte)',
@@ -3362,8 +3361,6 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
     };
 
     // ── GESTION DES SITES WEB & SOURCES OFFICIELLES ──────────────────────────
-    let adminWebsitesList = [];
-    let filteredWebsitesList = [];
 
     window.loadAndRenderWebsites = async function() {
         const tbody = document.getElementById('websitesTbody');
