@@ -1997,8 +1997,8 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                 conversationHistory.pop();
             }
             
-            // Repli automatique immédiat vers l'API Google directe si le backend proxy Vercel échoue
-            const activeApiKey = GEMINI_API_KEY && GEMINI_API_KEY !== 'VOTRE_CLE_API_GEMINI_ICI' ? GEMINI_API_KEY : 'AIzaSyCVs5sMgmx4Xx1OIneq0XI-Zj4CvHQnLes';
+            // Repli automatique en local uniquement si une clé directe est configurée
+            const activeApiKey = (!isVercel && typeof GEMINI_API_KEY === 'string' && GEMINI_API_KEY.startsWith('AIzaSy')) ? GEMINI_API_KEY : '';
             if (activeApiKey) {
                 console.warn("[PROCURA] Échec du backend proxy Vercel. Basculement transparent vers l'API directe Google...");
                 try {
@@ -2034,6 +2034,12 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                 }
             }
 
+            const isLeakedKey = err.message && (
+                err.message.toLowerCase().includes('leaked') ||
+                err.message.toLowerCase().includes('api_key_invalid') ||
+                err.message.toLowerCase().includes('api key not valid')
+            );
+
             const isQuotaError = err.message && (
                 err.message.toLowerCase().includes('quota') ||
                 err.message.includes('429') ||
@@ -2041,7 +2047,11 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                 err.message.toLowerCase().includes('resourceexhausted')
             );
 
-            if (isQuotaError) {
+            if (isLeakedKey) {
+                showBotMessage(
+                    `## 🔑 Clé API Gemini révoquée (Sécurité Google)\n\nGoogle a automatiquement désactivé cette clé API après avoir détecté qu'elle avait fuité publiquement.\n\n**Action requise :**\n1. Rendez-vous sur [Google AI Studio](https://aistudio.google.com/app/apikey) et générez une nouvelle clé.\n2. Ajoutez-la dans votre dashboard **Vercel -> Settings -> Environment Variables** sous le nom \`GEMINI_API_KEY\`.\n3. Redéployez votre application.`
+                );
+            } else if (isQuotaError) {
                 showBotMessage(
                     `## ⏳ Quota temporaire atteint (Rate Limit)\n\nL'API a reçu un volume important de texte sur une courte durée et a temporairement suspendu les requêtes.\n\n**Détail :** ${err.message}\n\n---\n💡 **Veuillez patienter 20 à 30 secondes** puis reposez votre question.`
                 );

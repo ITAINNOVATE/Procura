@@ -1,4 +1,6 @@
 config.js
+.env
+.env*.local
 scratch/
 *.log
 *.txt
