@@ -1950,7 +1950,7 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                         if (!jsonStr || jsonStr === '[DONE]') continue;
                         try {
                             const chunk = JSON.parse(jsonStr);
-                            const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                            const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text || chunk.choices?.[0]?.delta?.content || '';
                             if (text) {
                                 fullText += text;
                                 content.innerHTML = renderMarkdown(fullText);
