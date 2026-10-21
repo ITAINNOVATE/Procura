@@ -1,9 +1,9 @@
-// Vercel Edge Function (Secure Multi-Provider API Proxy: Gemini + Groq Fallback)
+// Vercel Edge Function (Multi-Provider API Proxy: Gemini -> Groq -> OpenAI Fallback)
 export const config = {
   runtime: 'edge',
 };
 
-function convertGeminiToGroq(payload) {
+function convertGeminiToOpenAIMessages(payload) {
   const messages = [];
 
   // 1. System instruction
@@ -31,24 +31,40 @@ function convertGeminiToGroq(payload) {
     }
   }
 
-  return {
-    model: process.env.GROQ_MODEL || 'qwen/qwen3.8-27b',
-    messages,
-    temperature: payload.generationConfig?.temperature ?? 0.3,
-    max_tokens: payload.generationConfig?.maxOutputTokens ?? 2048,
-    stream: true
-  };
+  return messages;
 }
 
-async function callGroq(payload, groqKey) {
-  const groqBody = convertGeminiToGroq(payload);
+async function callGroq(messages, payload, groqKey) {
   return await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${groqKey}`
     },
-    body: JSON.stringify(groqBody)
+    body: JSON.stringify({
+      model: process.env.GROQ_MODEL || 'qwen/qwen3.8-27b',
+      messages,
+      temperature: payload.generationConfig?.temperature ?? 0.3,
+      max_tokens: payload.generationConfig?.maxOutputTokens ?? 2048,
+      stream: true
+    })
+  });
+}
+
+async function callOpenAI(messages, payload, openAiKey) {
+  return await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${openAiKey}`
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      messages,
+      temperature: payload.generationConfig?.temperature ?? 0.3,
+      max_tokens: payload.generationConfig?.maxOutputTokens ?? 2048,
+      stream: true
+    })
   });
 }
 
@@ -67,8 +83,9 @@ export default async function handler(req) {
     const payload = await req.json();
     const geminiKey = process.env.GEMINI_API_KEY;
     const groqKey = process.env.GROQ_API_KEY;
+    const openAiKey = process.env.OPENAI_API_KEY;
 
-    // 1. Essayer d'abord Google Gemini si la clé est présente
+    // ── ÉTAPE 1 : Google Gemini (Principal) ──
     if (geminiKey) {
       try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${geminiKey}`;
@@ -82,31 +99,55 @@ export default async function handler(req) {
           return new Response(response.body, { status: 200, headers: sseHeaders });
         }
 
-        // Si Gemini échoue (ex: 429 quota dépassé, 403, 500)
-        console.warn(`[Gemini Proxy] Gemini returned HTTP ${response.status}. Attempting fallback...`);
+        console.warn(`[Proxy] Gemini returned HTTP ${response.status}. Attempting Groq fallback...`);
       } catch (geminiErr) {
-        console.warn('[Gemini Proxy] Gemini fetch failed:', geminiErr.message);
+        console.warn('[Proxy] Gemini fetch error:', geminiErr.message);
       }
     }
 
-    // 2. Basculer de manière transparente sur Groq si disponible
-    if (groqKey) {
-      console.log('[Gemini Proxy] Activating Groq fallback stream...');
-      const groqResponse = await callGroq(payload, groqKey);
-      if (groqResponse.ok) {
-        return new Response(groqResponse.body, { status: 200, headers: sseHeaders });
-      }
+    // Convertir les messages pour les fournisseurs compatibles OpenAI (Groq / OpenAI)
+    let openAiMessages = null;
+    function getMessages() {
+      if (!openAiMessages) openAiMessages = convertGeminiToOpenAIMessages(payload);
+      return openAiMessages;
+    }
 
-      const groqErrText = await groqResponse.text();
-      console.error('[Gemini Proxy] Groq fallback also failed:', groqResponse.status, groqErrText);
-      return new Response(groqErrText, {
-        status: groqResponse.status,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    // ── ÉTAPE 2 : Groq (Secours 1 - Vitesse extrême) ──
+    if (groqKey) {
+      try {
+        console.log('[Proxy] Activating Groq fallback...');
+        const groqResponse = await callGroq(getMessages(), payload, groqKey);
+        if (groqResponse.ok) {
+          return new Response(groqResponse.body, { status: 200, headers: sseHeaders });
+        }
+        const groqErr = await groqResponse.text();
+        console.warn(`[Proxy] Groq returned HTTP ${groqResponse.status}: ${groqErr}. Attempting OpenAI fallback...`);
+      } catch (groqErr) {
+        console.warn('[Proxy] Groq fetch error:', groqErr.message);
+      }
+    }
+
+    // ── ÉTAPE 3 : OpenAI ChatGPT (Secours 2 - Haute robustesse) ──
+    if (openAiKey) {
+      try {
+        console.log('[Proxy] Activating OpenAI fallback...');
+        const openAiResponse = await callOpenAI(getMessages(), payload, openAiKey);
+        if (openAiResponse.ok) {
+          return new Response(openAiResponse.body, { status: 200, headers: sseHeaders });
+        }
+        const openAiErr = await openAiResponse.text();
+        console.error(`[Proxy] OpenAI failed HTTP ${openAiResponse.status}:`, openAiErr);
+        return new Response(openAiErr, {
+          status: openAiResponse.status,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (openAiErr) {
+        console.error('[Proxy] OpenAI fetch error:', openAiErr.message);
+      }
     }
 
     return new Response(JSON.stringify({
-      error: 'Aucun fournisseur d\'IA configuré ou disponible (GEMINI_API_KEY / GROQ_API_KEY).'
+      error: 'Tous les fournisseurs d\'IA ont échoué ou aucune clé n\'est configurée (GEMINI_API_KEY, GROQ_API_KEY, OPENAI_API_KEY).'
     }), {
       status: 503,
       headers: { 'Content-Type': 'application/json' }
