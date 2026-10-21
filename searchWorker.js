@@ -289,7 +289,7 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6
     if (results.length > 0) {
         for (let i = 0; i < results.length; i++) {
             const chunk = results[i];
-            const piece = `--- DOCUMENT ${i + 1} : ${chunk.title} [Catégorie: ${chunk.category}] ---\n${chunk.content}\n\n`;
+            const piece = `### EXTRAIT OFFICIEL : ${chunk.title} [${chunk.category}]\n${chunk.content}\n\n`;
             if (currentChars + piece.length > MAX_CONTEXT_CHARS && i >= 2) {
                 break;
             }

@@ -137,6 +137,7 @@ Tu fondes tes réponses sur les données et procédures réelles extraites dans 
 - Adopte un ton prestigieux, institutionnel, extrêmement professionnel et rassurant, digne d'un cabinet de conseil international de premier plan.
 - Développe des réponses riches, approfondies, pédagogiques et directement opérationnelles (évite les réponses télégraphiques ou superficielles).
 - CITE SYSTÉMATIQUEMENT les textes officiels pertinents : numéro d'article, intitulé du décret, loi ou directive dès qu'ils apparaissent dans les extraits (ex: *« Selon l'article 32 du Code des marchés publics... »*, *« Conformément au Règlement de passation de la Banque Mondiale (5e édition révisée)... »*).
+- 🚫 RÈGLE FORMELLE DE CITATION : Ne mentionne JAMAIS des étiquettes ou numéros informatiques internes comme « DOCUMENT 1 », « DOCUMENT 2 », « DOCUMENT 3 », « extrait 1 », « dans le document joint » ou « selon notre base ». Cite TOUJOURS directement les véritables sources légales avec fluidité littéraire (ex: *« Aux termes du Décret d'application... »*, *« Conformément aux directives applicables... »*). Tes réponses doivent refléter l'élégance rédactionnelle d'un juriste associé de Bass Consulting.
 - Intègre les sources avec fluidité littéraire dans le texte sans jamais afficher de balises informatiques brutes comme "(Source 1 : ...)" ou "(Fichier : ...)".
 - Si la question concerne une distinction de concepts (ex: avenant vs addendum), restitue la définition juridique exacte de chaque notion, les conditions de validité, les seuils financiers et les impacts procéduraux.
 
@@ -314,7 +315,7 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20261017_v18');
+            searchWorker = new Worker('searchWorker.js?v=20261021_v20');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') {
@@ -1668,6 +1669,13 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
         // Links: [label](url)
         html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="chat-source-link"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:4px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>$1</a>');
 
+        // Nettoyage de sécurité : supprimer toute mention résiduelle de "DOCUMENT 1", "DOCUMENT 2", etc.
+        html = html
+            .replace(/\bDOCUMENT\s+\d+\s*:\s*/gi, '')
+            .replace(/\bDocument\s+\d+\s*:\s*/g, '')
+            .replace(/\s*\((DOCUMENT|Document)\s+\d+\)/gi, '')
+            .replace(/\s*\[(DOCUMENT|Document)\s+\d+\]/gi, '');
+
         // Paragraphs & line breaks
         html = html
             .replace(/\n\n/g, '</p><p>')
@@ -1838,7 +1846,7 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
             }
 
             dynamicSystemPrompt += `\n\n🎯 DIRECTIVES DE RÉPONSE EXPERTE (HIÉRARCHIE STRICTE DES SOURCES) :
-1. PRIORITÉ 1 ABSOLUE (DOCUMENTATION OFFICIELLE) : Ton analyse juridique, tes citations d'articles, tes délais et tes règles de procédure DOIVENT impérativement et prioritairement reposer sur les extraits documentaires ci-dessus (lois, décrets, directives de bailleurs, carrousels Bass Consulting).
+1. PRIORITÉ 1 ABSOLUE (DOCUMENTATION OFFICIELLE) : Ton analyse juridique, tes citations d'articles, tes délais et tes règles de procédure DOIVENT impérativement et prioritairement reposer sur les extraits documentaires ci-dessus (lois, décrets, directives de bailleurs, carrousels Bass Consulting). Ne mentionne JAMAIS les étiquettes internes « DOCUMENT 1 », « DOCUMENT 2 », etc. ; cite TOUJOURS le nom juridique réel du texte (ex: *« Selon le Code des marchés publics... »*, *« Aux termes du Décret n°... »*, *« Conformément au Règlement de la Banque Mondiale... »*).
 2. PRIORITÉ 2 (COMPLÉMENT SITES WEB SI NÉCESSAIRE) : Les portails officiels listés ci-dessus interviennent UNIQUEMENT EN COMPLÉMENT pour orienter le professionnel vers les portails de dématérialisation, les avis récents ou les formulaires types en ligne. Tu peux insérer ces liens cliquables [Nom](URL) en fin de réponse ou dans tes démarches opérationnelles si cela apporte une valeur ajoutée concrète.
 3. Développe une réponse complète, claire, pédagogique et directement opérationnelle pour le professionnel.
 4. Reste parfaitement dans le cadre de la question posée (zéro hors-sujet).
