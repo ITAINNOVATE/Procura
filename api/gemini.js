@@ -35,6 +35,19 @@ function convertGeminiToOpenAIMessages(payload) {
 }
 
 async function callGroq(messages, payload, groqKey) {
+  // Le palier gratuit de Groq impose une limite stricte de 7 000 tokens/minute.
+  // On calibre le message système RAG à max 14 000 caractères (~3 500 tokens)
+  // pour garantir que le total reste toujours sous 5 000 tokens et ne bloque jamais.
+  const safeMessages = messages.map(msg => {
+    if (msg.role === 'system' && msg.content && msg.content.length > 14000) {
+      return {
+        ...msg,
+        content: msg.content.slice(0, 14000) + '\n\n[...Extraits documentaires synthétisés pour le relais rapide Groq...]'
+      };
+    }
+    return msg;
+  });
+
   return await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -43,9 +56,9 @@ async function callGroq(messages, payload, groqKey) {
     },
     body: JSON.stringify({
       model: process.env.GROQ_MODEL || 'qwen/qwen3.8-27b',
-      messages,
+      messages: safeMessages,
       temperature: payload.generationConfig?.temperature ?? 0.3,
-      max_tokens: payload.generationConfig?.maxOutputTokens ?? 2048,
+      max_tokens: Math.min(payload.generationConfig?.maxOutputTokens ?? 2048, 2048),
       stream: true
     })
   });
