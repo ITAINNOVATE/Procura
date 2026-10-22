@@ -183,39 +183,79 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
     const FREE_LIMIT = FREE_LIMIT_LOGGED_IN;
     let questionsUsed = 0;
 
-    // Vérifie si la période du plan est expirée et remet à zéro si besoin
-    function checkAndResetPeriod(plan) {
-        const startDateStr = safeStorage.getItem('procura_plan_start');
-        const now = Date.now();
+    // Vérification rigoureuse de la validité temporelle des abonnements payants
+    async function checkPlanExpiration() {
+        if (!userProfile || !currentUser) return;
+        const plan = (userProfile.plan || 'free').toLowerCase();
+        if (plan === 'free') return;
 
-        if (!startDateStr) {
-            // Pas de date de début enregistrée, on initialise maintenant
-            safeStorage.setItem('procura_plan_start', now.toString());
-            safeStorage.setItem('procura_q_count', '0');
-            questionsUsed = 0;
+        // Exemptions pour l'équipe dirigeante / administrateurs
+        const isSupportAdmin = currentUser.email && currentUser.email.toLowerCase().trim() === 'support@bassentreprises.com';
+        const adminEmails = ['arafathimorou@gmail.com', 'akiboubassabi@gmail.com'];
+        if (isSupportAdmin || adminEmails.includes(currentUser.email.toLowerCase())) {
             return;
         }
 
-        const startDate = parseInt(startDateStr);
-        const elapsed = now - startDate;
+        const now = Date.now();
         const ONE_DAY = 24 * 60 * 60 * 1000;
-        const ONE_WEEK = 7 * ONE_DAY;
+        const planDurations = {
+            'daily': ONE_DAY,
+            'weekly': 7 * ONE_DAY,
+            'monthly': 30 * ONE_DAY,
+            'annual': 365 * ONE_DAY
+        };
 
-        let periodExpired = false;
-        if (plan === 'daily' && elapsed >= ONE_DAY) periodExpired = true;
-        if (plan === 'weekly' && elapsed >= ONE_WEEK) periodExpired = true;
+        const maxDuration = planDurations[plan];
+        if (!maxDuration) return;
 
-        if (periodExpired) {
-            // On renouvelle la période et on remet le compteur à 0
+        // Déterminer la date de démarrage (updated_at du profil ou procura_plan_start)
+        let startTime = null;
+        if (userProfile.updated_at) {
+            startTime = new Date(userProfile.updated_at).getTime();
+        }
+        if (!startTime || isNaN(startTime)) {
+            const localStart = safeStorage.getItem('procura_plan_start');
+            if (localStart) startTime = parseInt(localStart, 10);
+        }
+
+        if (!startTime || isNaN(startTime)) {
             safeStorage.setItem('procura_plan_start', now.toString());
-            safeStorage.setItem('procura_q_count', '0');
+            return;
+        }
+
+        const elapsed = now - startTime;
+
+        if (elapsed >= maxDuration) {
+            console.log(`[ABONNEMENT] Formule ${plan} expirée pour ${currentUser.email}. Rétrogradation automatique vers Gratuit.`);
+            
+            // 1. Rétrogradation vers Gratuit
+            userProfile.plan = 'free';
+            userProfile.questions_asked = 0;
             questionsUsed = 0;
-            // Mettre à jour Supabase si connecté
-            if (supabase && currentUser) {
-                supabase.from('profiles').update({ questions_asked: 0 }).eq('id', currentUser.id).then(() => {});
+            safeStorage.setItem('procura_q_count', '0');
+            safeStorage.removeItem('procura_plan_start');
+
+            // 2. Mise à jour dans Supabase
+            try {
+                if (supabase) {
+                    await supabase.from('profiles').update({
+                        plan: 'free',
+                        questions_asked: 0,
+                        updated_at: new Date().toISOString()
+                    }).eq('id', currentUser.id);
+                }
+            } catch (upErr) {
+                console.warn("[ABONNEMENT] Erreur rétrogradation DB:", upErr);
             }
-        } else {
-            questionsUsed = parseInt(safeStorage.getItem('procura_q_count') || '0');
+
+            // 3. Rafraîchissement UI
+            updateUIForLoggedIn();
+            updateCounter();
+
+            // 4. Notification courtoise
+            const planNames = { daily: 'Journalier', weekly: 'Hebdomadaire', monthly: 'Mensuel', annual: 'Annuel' };
+            const expiredLabel = planNames[plan] || plan;
+            alert(`Information Abonnement :\n\nVotre formule "${expiredLabel}" est arrivée à échéance.\n\nVotre compte est désormais repassé au plan Gratuit (1 question offerte par jour). Vous pouvez vous réabonner à tout moment en cliquant sur "Tarifs & Plans".`);
         }
     }
 
@@ -578,11 +618,8 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                 safeStorage.setItem('procura_q_count', questionsUsed);
             }
 
-            // Vérifier et réinitialiser le quota selon la période du plan
-            const plan = userProfile ? (userProfile.plan || 'free') : 'free';
-            if (plan === 'daily' || plan === 'weekly') {
-                checkAndResetPeriod(plan);
-            }
+            // Vérifier et appliquer la validité temporelle de l'abonnement
+            await checkPlanExpiration();
         } catch (err) {
             console.error("Error syncing user profile:", err);
         }
@@ -1172,16 +1209,30 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
             } catch (err) {
                 console.error("SignUp error:", err);
                 if (errorEl) {
-                    let detailMsg = "";
+                    let rawMsg = "";
                     if (err && typeof err === 'object') {
-                        const allKeys = Object.getOwnPropertyNames(err);
-                        const errObj = {};
-                        allKeys.forEach(k => { errObj[k] = err[k]; });
-                        detailMsg = err.message || err.error_description || err.description || JSON.stringify(errObj);
+                        rawMsg = err.message || err.error_description || err.description || JSON.stringify(err);
                     } else {
-                        detailMsg = String(err);
+                        rawMsg = String(err);
                     }
-                    errorEl.textContent = "Erreur : " + detailMsg;
+
+                    let friendlyMsg = "Erreur lors de la création du compte.";
+                    const lower = rawMsg.toLowerCase();
+                    if (lower.includes("already registered") || lower.includes("user_already_exists") || lower.includes("already exists")) {
+                        friendlyMsg = "Un compte existe déjà avec cette adresse e-mail. Veuillez vous connecter.";
+                    } else if (lower.includes("password should be at least") || lower.includes("password is too short")) {
+                        friendlyMsg = "Le mot de passe doit comporter au moins 6 caractères.";
+                    } else if (lower.includes("valid email") || lower.includes("invalid email")) {
+                        friendlyMsg = "Veuillez saisir une adresse e-mail valide.";
+                    } else if (lower.includes("rate limit") || lower.includes("too many requests")) {
+                        friendlyMsg = "Trop de tentatives rapprochées. Veuillez patienter un instant avant de réessayer.";
+                    } else if (lower.includes("failed to fetch") || lower.includes("networkerror")) {
+                        friendlyMsg = "Connexion au serveur impossible. Vérifiez votre connexion internet.";
+                    } else {
+                        friendlyMsg = rawMsg;
+                    }
+
+                    errorEl.textContent = friendlyMsg;
                     errorEl.classList.remove('hidden');
                 }
                 if (submitBtn) {
@@ -1303,6 +1354,52 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.textContent = "Se connecter";
+            }
+        }
+    };
+
+    // ── Mot de passe oublié ─────────────────────────────────
+    window.handleForgotPassword = async function() {
+        const emailInput = document.getElementById('loginEmail');
+        const errorEl = document.getElementById('loginError');
+        const successEl = document.getElementById('loginSuccess');
+        
+        if (errorEl) errorEl.classList.add('hidden');
+        if (successEl) successEl.classList.add('hidden');
+
+        let email = emailInput ? emailInput.value.trim() : '';
+        if (!email) {
+            email = prompt("Veuillez saisir votre adresse e-mail pour réinitialiser votre mot de passe :");
+            if (!email) return;
+            if (emailInput) emailInput.value = email;
+        }
+
+        if (!email.includes('@')) {
+            if (errorEl) {
+                errorEl.textContent = "Veuillez renseigner une adresse e-mail valide.";
+                errorEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        try {
+            if (supabase) {
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: window.location.origin
+                });
+                if (error) throw error;
+            }
+            if (successEl) {
+                successEl.textContent = `Un e-mail de réinitialisation vous a été envoyé à ${email}. Veuillez vérifier votre boîte de réception.`;
+                successEl.classList.remove('hidden');
+            } else {
+                alert(`Un e-mail de réinitialisation vous a été envoyé à ${email}.`);
+            }
+        } catch (err) {
+            console.error("Forgot password error:", err);
+            if (errorEl) {
+                errorEl.textContent = "Impossible d'envoyer l'e-mail de réinitialisation. Vérifiez votre adresse ou réessayez plus tard.";
+                errorEl.classList.remove('hidden');
             }
         }
     };

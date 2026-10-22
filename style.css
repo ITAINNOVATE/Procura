@@ -127,6 +127,45 @@ body {
     box-shadow: 0 4px 10px rgba(194, 149, 67, 0.2);
 }
 
+.plans-btn {
+    background: rgba(194, 149, 67, 0.1);
+    color: #b08235;
+    border: 1px solid rgba(194, 149, 67, 0.4);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 600;
+}
+
+.plans-btn:hover {
+    background: var(--color-gold);
+    color: white;
+    border-color: var(--color-gold);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(194, 149, 67, 0.25);
+}
+
+.forgot-pwd-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.4rem;
+}
+
+.forgot-pwd-link {
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 0.82rem;
+    cursor: pointer;
+    text-decoration: underline;
+    transition: var(--transition-fast);
+    padding: 0;
+}
+
+.forgot-pwd-link:hover {
+    color: var(--color-gold);
+}
+
 .help-btn {
     display: flex;
     align-items: center;

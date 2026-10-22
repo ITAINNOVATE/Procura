@@ -94,6 +94,11 @@
                 <img src="assets/logo_procura_sans_fond.png" alt="PROCURA" class="logo-img">
             </div>
             <div class="header-actions">
+                <!-- Bouton Tarifs & Plans (toujours accessible) -->
+                <button class="auth-btn plans-btn" id="headerPlansBtn" onclick="openPlansModal()" title="Consulter les formules d'abonnement">
+                    <i data-lucide="sparkles" class="mini-icon"></i> Tarifs & Plans
+                </button>
+
                 <!-- Bouton Espace Admin (affiché si connecté avec support@bassentreprises.com ou role admin) -->
                 <button class="auth-btn admin-badge-btn hidden" id="headerAdminBtn" onclick="openAdminDashboard()">
                     <i data-lucide="shield-check" class="mini-icon"></i> Espace Admin
@@ -103,7 +108,7 @@
                 <div class="user-profile hidden" id="userProfile">
                     <div class="user-info">
                         <span class="user-email" id="userEmail"></span>
-                        <span class="user-plan-badge plan-free" id="userPlanBadge">Gratuit</span>
+                        <span class="user-plan-badge plan-free" id="userPlanBadge" onclick="openPlansModal()" title="Cliquer pour changer de formule" style="cursor:pointer;">Gratuit</span>
                     </div>
                     <button class="auth-btn logout-btn" id="logoutBtn">
                         <i data-lucide="log-out" class="mini-icon"></i> Déconnexion
@@ -443,12 +448,15 @@
                             <i data-lucide="eye" class="pwd-eye-icon"></i>
                         </button>
                     </div>
+                    <div class="forgot-pwd-row">
+                        <button type="button" class="forgot-pwd-link" onclick="handleForgotPassword()">Mot de passe oublié ?</button>
+                    </div>
                 </div>
 
                 <button class="reg-submit-btn" id="loginSubmitBtn" onclick="handleSignIn()">Se connecter</button>
 
                 <div class="reg-confirmation error-message hidden" id="loginError"></div>
-                <div id="loginDiag" style="font-family: monospace; font-size: 0.75rem; text-align: left; white-space: pre-wrap; margin-top: 1rem; background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; padding: 0.75rem; border-radius: 0.5rem; display:none; width: 100%;"></div>
+                <div class="reg-confirmation success-message hidden" id="loginSuccess"></div>
 
                 <div class="reg-footer-links">
                     <span>Vous n'avez pas de compte ?</span>
