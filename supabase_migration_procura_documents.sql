@@ -1,4 +1,4 @@
-﻿-- ══════════════════════════════════════════════════════
+-- ══════════════════════════════════════════════════════
 --  MIGRATION PROCURA — Table procura_documents
 --  A executer dans : Supabase Dashboard -> SQL Editor
 --  Projet : yhutkoevddnydlvoqeqj
@@ -26,10 +26,16 @@ CREATE POLICY "procura_docs_select"
   USING (true);
 
 DROP POLICY IF EXISTS "procura_docs_all" ON public.procura_documents;
-CREATE POLICY "procura_docs_all"
+DROP POLICY IF EXISTS "procura_docs_admin_all" ON public.procura_documents;
+CREATE POLICY "procura_docs_admin_all"
   ON public.procura_documents FOR ALL
-  USING (true)
-  WITH CHECK (true);
+  TO authenticated
+  USING (
+    auth.jwt() ->> 'email' IN ('support@bassentreprises.com', 'arafathimorou@gmail.com', 'akiboubassabi@gmail.com')
+  )
+  WITH CHECK (
+    auth.jwt() ->> 'email' IN ('support@bassentreprises.com', 'arafathimorou@gmail.com', 'akiboubassabi@gmail.com')
+  );
 
 CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$

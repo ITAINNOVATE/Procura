@@ -1,4 +1,4 @@
-// Vercel Edge Function (Multi-Provider API Proxy: Gemini -> Groq -> OpenAI Fallback)
+// Vercel Edge Function (Multi-Provider API Proxy: Gemini -> Groq -> OpenAI Fallback avec Authentification et Quota Serveur)
 export const config = {
   runtime: 'edge',
 };
@@ -99,6 +99,97 @@ export default async function handler(req) {
     const geminiKey = process.env.GEMINI_API_KEY;
     const groqKey = process.env.GROQ_API_KEY;
     const openAiKey = process.env.OPENAI_API_KEY;
+
+    // ── VÉRIFICATION DE SÉCURITÉ & DE QUOTA (CÔTÉ SERVEUR) ──
+    const SUPABASE_URL = process.env.SUPABASE_URL || 'https://yhutkoevddnydlvoqeqj.supabase.co';
+    const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable__joMXcg0O_T1FSwR_3241g_x0MSmaqJ';
+    const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
+    const adminEmails = ['support@bassentreprises.com', 'arafathimorou@gmail.com', 'akiboubassabi@gmail.com'];
+
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+    // Connexion obligatoire pour utiliser l'IA PROCURA
+    if (!token) {
+      return new Response(JSON.stringify({
+        error: { message: "Connexion requise pour interroger l'assistant PROCURA. Veuillez vous connecter ou créer un compte." }
+      }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Valider le jeton avec Supabase
+    let authenticatedUser = null;
+    try {
+      const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (userRes.ok) {
+        authenticatedUser = await userRes.json();
+      }
+    } catch (e) {
+      console.warn('[Proxy] Erreur validation JWT:', e.message);
+    }
+
+    if (!authenticatedUser || !authenticatedUser.id) {
+      return new Response(JSON.stringify({
+        error: { message: "Session expirée ou invalide. Veuillez vous reconnecter à PROCURA." }
+      }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const isUserAdmin = authenticatedUser.email && adminEmails.includes(authenticatedUser.email.toLowerCase());
+
+    // Vérifier les quotas en base de données si l'utilisateur n'est pas admin
+    if (!isUserAdmin) {
+      try {
+        const profileRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(authenticatedUser.id)}&select=*`, {
+          headers: {
+            'apikey': SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
+          }
+        });
+        if (profileRes.ok) {
+          const profiles = await profileRes.json();
+          const userProfile = profiles && profiles[0];
+          const plan = (userProfile?.plan || 'free').toLowerCase();
+          const asked = Number(userProfile?.questions_asked || 0);
+
+          let maxAllowed = 1; // free
+          if (plan === 'annual' || plan === 'monthly') maxAllowed = Infinity;
+          else if (plan === 'weekly') maxAllowed = 20;
+          else if (plan === 'daily') maxAllowed = 3;
+
+          if (asked >= maxAllowed) {
+            return new Response(JSON.stringify({
+              error: { message: `Quota de questions atteint pour votre plan actuel (${plan}). Veuillez passer au plan supérieur pour continuer à bénéficier de l'expertise PROCURA.` }
+            }), {
+              status: 403,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+
+          // Décompter la question de manière asynchrone
+          fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(authenticatedUser.id)}`, {
+            method: 'PATCH',
+            headers: {
+              'apikey': SERVICE_ROLE_KEY,
+              'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ questions_asked: asked + 1, updated_at: new Date().toISOString() })
+          }).catch(err => console.warn('[Proxy] Erreur incrément quota:', err.message));
+        }
+      } catch (profErr) {
+        console.warn('[Proxy] Erreur vérification quota profil:', profErr.message);
+      }
+    }
 
     // ── ÉTAPE 1 : Google Gemini (Principal) ──
     if (geminiKey) {

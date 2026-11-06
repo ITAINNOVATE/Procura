@@ -373,7 +373,7 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20261106_v22');
+            searchWorker = new Worker('searchWorker.js?v=20261106_v23');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') {
@@ -952,7 +952,8 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                                     },
                                     body: JSON.stringify({
                                         userId: currentUser.id,
-                                        plan: selectedPlan
+                                        plan: selectedPlan,
+                                        transactionId: (resp && resp.transaction && resp.transaction.id) ? resp.transaction.id : (resp ? (resp.id || (resp.data && resp.data.id) || null) : null)
                                     })
                                 });
 
@@ -2010,9 +2011,21 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                 ? '/api/gemini'
                 : `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
 
+            // Récupérer le jeton de session pour authentifier la requête vers le proxy IA
+            let authHeader = '';
+            try {
+                if (supabase && supabase.auth) {
+                    const session = (await supabase.auth.getSession()).data?.session;
+                    if (session?.access_token) authHeader = 'Bearer ' + session.access_token;
+                }
+            } catch (_) {}
+
             const res = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authHeader ? { 'Authorization': authHeader } : {})
+                },
                 body: JSON.stringify(body)
             });
 
@@ -2383,7 +2396,7 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
                 <td style="max-width:320px; font-weight:500; color:#f8fafc;">${escapeHtml(log.query)}</td>
                 <td style="max-width:280px; font-size:0.82rem; color:#94a3b8;"><i data-lucide="file-check" style="width:14px; height:14px; color:var(--color-gold); vertical-align:middle;"></i> ${escapeHtml(log.sources)}</td>
                 <td>
-                    <button class="admin-btn-gold" style="padding:0.35rem 0.65rem; font-size:0.75rem;" onclick="alert('Détails de la requête :\\nUtilisateur: ${escapeHtml(log.user)}\\nDate: ${log.date} à ${log.timestamp}\\nQuestion: ${escapeHtml(log.query)}')">
+                    <button class="admin-btn-gold" style="padding:0.35rem 0.65rem; font-size:0.75rem;" onclick="window.showAdminQueryDetail(this)" data-user="${escapeHtml(log.user)}" data-date="${escapeHtml(log.date)}" data-time="${escapeHtml(log.timestamp)}" data-query="${escapeHtml(log.query)}">
                         <i data-lucide="eye"></i> Détails
                     </button>
                 </td>
@@ -3916,7 +3929,9 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/`/g, '&#96;');
     }
 
 });
