@@ -28,7 +28,27 @@ const normalize = (str, keepStopWords = false) => {
     return tokens.filter(w => !STOP_WORDS.has(w) && w.length > 2);
 };
 
-const CACHE_NAME = 'procura-kb-v10';
+const CACHE_NAME = 'procura-kb-v11';
+
+// Équivalences bilingues (FR / EN) et synonymes fréquents pour les bailleurs et marchés publics
+const BILINGUAL_EQUIVALENCES = {
+    'reglement': ['regulations', 'regulation', 'reglements'],
+    'reglements': ['regulations', 'regulation', 'reglement'],
+    'regulation': ['reglement', 'reglements', 'regulations'],
+    'regulations': ['reglement', 'reglements', 'regulation'],
+    'banque': ['bank'],
+    'bank': ['banque'],
+    'mondiale': ['world'],
+    'world': ['mondiale'],
+    'passation': ['procurement'],
+    'procurement': ['passation'],
+    'marches': ['procurement', 'markets'],
+    'revision': ['revisions', 'amendment', 'amendments'],
+    'revisions': ['revision', 'amendment', 'amendments'],
+    'edition': ['editions', 'version', 'versions'],
+    'editions': ['edition', 'version', 'versions'],
+    'objet': ['objets', 'objectif', 'objectifs', 'but', 'focus']
+};
 
 // Fonction de chargement avec mise en cache ultra-rapide (Cache API)
 async function fetchPartWithCache(partNum) {
@@ -108,8 +128,14 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6
     if (queryWords.length === 0) return "";
 
     // 1. Détections spécifiques (Récence & Acronymes)
-    const recencyTerms = ['derniere', 'dernier', 'recent', 'recente', 'jour', 'edition', 'revision', 'nouveau', 'nouvelle'];
-    const isRecencyQuery = rawQueryWords.some(w => recencyTerms.includes(w));
+    const recencyTerms = [
+        'derniere', 'dernieres', 'dernier', 'derniers',
+        'recent', 'recents', 'recente', 'recentes',
+        'jour', 'edition', 'editions', 'revision', 'revisions',
+        'nouveau', 'nouveaux', 'nouvelle', 'nouvelles', 'nouveautes',
+        'actuel', 'actuelle', 'actuels', 'actuelles'
+    ];
+    const isRecencyQuery = rawQueryWords.some(w => recencyTerms.includes(w) || (w.endsWith('s') && recencyTerms.includes(w.slice(0, -1))));
 
     // Mots spécifiques (acronymes ou termes rares hors mots généraux)
     const genericWords = ['marches', 'publics', 'passation', 'republique', 'decret', 'loi', 'code', 'reglement', 'procedures'];
@@ -150,15 +176,34 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6
         return true;
     });
 
-    const numQueryWords = queryWords.length;
+    // Expansion bilingue & lemmatisation des mots de la requête
+    const expandedQueryWords = new Set(queryWords);
+    queryWords.forEach(w => {
+        if (BILINGUAL_EQUIVALENCES[w]) {
+            BILINGUAL_EQUIVALENCES[w].forEach(eq => expandedQueryWords.add(eq));
+        }
+        if (w.endsWith('s') && w.length > 3) {
+            expandedQueryWords.add(w.slice(0, -1));
+        }
+    });
+    const expandedTokens = Array.from(expandedQueryWords);
+    const numTokens = expandedTokens.length;
 
     // 3. Calcul du score optimisé (boucle ultra-véloce)
     const scoredChunks = filteredBase.map(item => {
         let score = 0;
         let categoryMatch = false;
 
-        for (let i = 0; i < numQueryWords; i++) {
-            const word = queryWords[i];
+        // Détection de l'année maximale dans le document (titre, path, ou début du contenu)
+        const textForYear = (item.chunk.title + ' ' + (item.chunk.source || '') + ' ' + (item.chunk.path || '') + ' ' + (item.chunk.content ? item.chunk.content.slice(0, 350) : ''));
+        const yearMatches = textForYear.match(/\b(20[1-2][0-9])\b/g);
+        let docMaxYear = 0;
+        if (yearMatches) {
+            docMaxYear = Math.max(...yearMatches.map(y => parseInt(y, 10)));
+        }
+
+        for (let i = 0; i < numTokens; i++) {
+            const word = expandedTokens[i];
 
             let matchesCategory = false;
             if (item.categoryNorm.includes(word)) {
@@ -174,15 +219,18 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6
                 categoryMatch = true;
             }
 
-            // Title match direct
+            // Title match direct (avec lemmatisation du pluriel)
             let titleMatches = 0;
             const tLen = item.titleNorm.length;
             for (let j = 0; j < tLen; j++) {
                 const tw = item.titleNorm[j];
-                if (tw === word) titleMatches += 40;
-                else if (tw.includes(word) || word.includes(tw)) titleMatches += 15;
+                if (tw === word || (tw.endsWith('s') && tw.slice(0, -1) === word)) {
+                    titleMatches += 50;
+                } else if (tw.includes(word) || word.includes(tw)) {
+                    titleMatches += 20;
+                }
             }
-            score += Math.min(titleMatches, 120);
+            score += Math.min(titleMatches, 150);
 
             // Content match direct
             let contentMatches = 0;
@@ -192,40 +240,54 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6
                 if (cw === word) contentMatches += 4;
                 else if (cw.includes(word)) contentMatches += 1;
             }
-            score += Math.min(contentMatches, 50);
+            score += Math.min(contentMatches, 60);
         }
 
         // Multi-word title match boost
         let titleMatchCount = 0;
-        for (let i = 0; i < numQueryWords; i++) {
-            if (item.titleRawLower.includes(queryWords[i])) titleMatchCount++;
+        for (let i = 0; i < numTokens; i++) {
+            if (item.titleRawLower.includes(expandedTokens[i])) titleMatchCount++;
         }
         if (titleMatchCount >= 2) {
-            score += titleMatchCount * 150;
-        } else if (titleMatchCount === 1 && numQueryWords <= 3) {
-            score += 100;
+            score += titleMatchCount * 120;
+        } else if (titleMatchCount === 1 && numTokens <= 4) {
+            score += 80;
         }
 
         // Exact query substring match bonus
         if (item.contentRawLower.includes(queryRawNorm)) {
-            score += 160;
+            score += 200;
         }
 
-        // Boost chronologique pour les révisions / éditions récentes (ex: 2025 vs 2023 vs 2018)
+        // Exact phrases clés récurrentes
+        if (item.contentRawLower.includes("revision du reglement") || item.contentRawLower.includes("reglement de passation") || item.contentRawLower.includes("procurement regulations")) {
+            score += 200;
+        }
+
+        // Boost prioritaire pour les résumés de révision officiels ("Summary of Revisions" / "Points clés révisions")
+        const isRevisionSummary = item.titleRawLower.includes("summary of revisions") || 
+                                  item.titleRawLower.includes("summary-of-revisions") ||
+                                  item.titleRawLower.includes("revisions reglement") ||
+                                  item.contentRawLower.includes("revision du reglement de passation") ||
+                                  item.contentRawLower.includes("revision of the world bank procurement regulations");
+        if (isRevisionSummary) {
+            score += 600;
+        }
+
+        // Boost chronologique strict pour les révisions / éditions récentes (2025 > 2023 > 2018)
         if (isRecencyQuery) {
-            const fullTextForYear = (item.chunk.title + ' ' + (item.chunk.source || '') + ' ' + (item.chunk.path || ''));
-            const yearMatches = fullTextForYear.match(/\b(20[1-2][0-9])\b/g);
-            if (yearMatches) {
-                const maxYear = Math.max(...yearMatches.map(y => parseInt(y, 10)));
-                if (maxYear >= 2025) {
-                    score += 350;
-                    if (item.titleRawLower.includes('regulations') || item.titleRawLower.includes('reglement') || item.titleRawLower.includes('revisions')) {
-                        score += 200;
-                    }
+            if (docMaxYear >= 2025) {
+                score += 1000; // Super boost pour l'année 2025 (éditions 6 et 7)
+                if (item.titleRawLower.includes('sep') || item.contentRawLower.includes('septembre 2025') || item.contentRawLower.includes('septieme edition') || item.contentRawLower.includes('7th edition')) {
+                    score += 500; // Boost pour la 7e édition (Septembre 2025)
+                } else if (item.titleRawLower.includes('feb') || item.contentRawLower.includes('fevrier 2025') || item.contentRawLower.includes('sixieme edition') || item.contentRawLower.includes('6th edition')) {
+                    score += 450; // Boost pour la 6e édition (Février 2025)
                 }
-                else if (maxYear >= 2023) score += 150;
-                else if (maxYear >= 2020) score += 80;
-                else if (maxYear >= 2018) score += 20;
+            } else if (docMaxYear === 2023) {
+                // Pénaliser les anciennes éditions (2023) si une demande porte sur la dernière édition
+                score -= 150;
+            } else if (docMaxYear > 0 && docMaxYear < 2023) {
+                score -= 350;
             }
         }
 
