@@ -28,7 +28,7 @@ const normalize = (str, keepStopWords = false) => {
     return tokens.filter(w => !STOP_WORDS.has(w) && w.length > 2);
 };
 
-const CACHE_NAME = 'procura-kb-v11';
+const CACHE_NAME = 'procura-kb-v12';
 
 // Équivalences bilingues (FR / EN) et synonymes fréquents pour les bailleurs et marchés publics
 const BILINGUAL_EQUIVALENCES = {
@@ -345,7 +345,7 @@ function searchKnowledge(query, accessLevel, currentPlan, userCountry, limit = 6
     // 4. Formater le contexte transmis à l'IA (optimisé pour préserver les quotas de tokens)
     let contextMarkdown = "\n\n<context>\nVoici des extraits documentaires et carrousels pertinents issus de la base officielle :\n\n";
 
-    const MAX_CONTEXT_CHARS = 16000;
+    const MAX_CONTEXT_CHARS = 7500;
     let currentChars = 0;
 
     if (results.length > 0) {

@@ -34,19 +34,21 @@ function convertGeminiToOpenAIMessages(payload) {
   return messages;
 }
 
-async function callGroq(messages, payload, groqKey) {
-  // Le palier gratuit de Groq impose une limite stricte de 7 000 tokens/minute.
-  // On calibre le message système RAG à max 14 000 caractères (~3 500 tokens)
-  // pour garantir que le total reste toujours sous 5 000 tokens et ne bloque jamais.
+async function callGroq(messages, payload, groqKey, modelOverride = null, maxCharLimit = 8000) {
+  // Le palier gratuit de Groq impose une limite stricte de 7 000 - 8 000 tokens/minute.
+  // On calibre le contenu système et contexte RAG à max 8 000 caractères (~2 000 tokens)
+  // pour garantir que le total de la requête reste toujours sous 3 000 tokens et ne bloque jamais.
   const safeMessages = messages.map(msg => {
-    if (msg.role === 'system' && msg.content && msg.content.length > 14000) {
+    if (msg.role === 'system' && msg.content && msg.content.length > maxCharLimit) {
       return {
         ...msg,
-        content: msg.content.slice(0, 14000) + '\n\n[...Extraits documentaires synthétisés pour le relais rapide Groq...]'
+        content: msg.content.slice(0, maxCharLimit) + '\n\n[...Extraits documentaires synthétisés pour le relais rapide Groq...]'
       };
     }
     return msg;
   });
+
+  const model = modelOverride || process.env.GROQ_MODEL || 'qwen/qwen3.8-27b';
 
   return await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
@@ -55,9 +57,9 @@ async function callGroq(messages, payload, groqKey) {
       'Authorization': `Bearer ${groqKey}`
     },
     body: JSON.stringify({
-      model: process.env.GROQ_MODEL || 'qwen/qwen3.8-27b',
+      model: model,
       messages: safeMessages,
-      temperature: payload.generationConfig?.temperature ?? 0.3,
+      temperature: payload.generationConfig?.temperature ?? 0.2,
       max_tokens: Math.min(payload.generationConfig?.maxOutputTokens ?? 2048, 2048),
       stream: true
     })
@@ -125,11 +127,24 @@ export default async function handler(req) {
       return openAiMessages;
     }
 
-    // ── ÉTAPE 2 : Groq (Secours 1 - Vitesse extrême) ──
+    // ── ÉTAPE 2 : Groq (Secours 1 - Vitesse extrême & multi-modèles) ──
     if (groqKey) {
       try {
-        console.log('[Proxy] Activating Groq fallback...');
-        const groqResponse = await callGroq(getMessages(), payload, groqKey);
+        console.log('[Proxy] Activating Groq fallback (Primary: qwen/qwen3.8-27b)...');
+        let groqResponse = await callGroq(getMessages(), payload, groqKey, 'qwen/qwen3.8-27b', 8000);
+        
+        // Si dépassement de quota (HTTP 413 / 429) ou erreur, basculer immédiatement sur openai/gpt-oss-120b
+        if (!groqResponse.ok && (groqResponse.status === 413 || groqResponse.status === 429 || groqResponse.status === 400)) {
+          console.warn(`[Proxy] Groq primary returned HTTP ${groqResponse.status}. Retrying with openai/gpt-oss-120b and compact context...`);
+          groqResponse = await callGroq(getMessages(), payload, groqKey, 'openai/gpt-oss-120b', 5500);
+        }
+
+        // Si gpt-oss-120b échoue aussi, tenter openai/gpt-oss-20b
+        if (!groqResponse.ok && (groqResponse.status === 413 || groqResponse.status === 429 || groqResponse.status === 400)) {
+          console.warn(`[Proxy] Groq secondary returned HTTP ${groqResponse.status}. Retrying with openai/gpt-oss-20b...`);
+          groqResponse = await callGroq(getMessages(), payload, groqKey, 'openai/gpt-oss-20b', 4000);
+        }
+
         if (groqResponse.ok) {
           return new Response(groqResponse.body, { status: 200, headers: sseHeaders });
         }
@@ -150,7 +165,18 @@ export default async function handler(req) {
         }
         const openAiErr = await openAiResponse.text();
         console.error(`[Proxy] OpenAI failed HTTP ${openAiResponse.status}:`, openAiErr);
-        return new Response(openAiErr, {
+        // Si OpenAI a un problème de quota, ne pas afficher d'URL brute à l'utilisateur
+        let cleanError = "Le service d'assistance IA est temporairement très sollicité. Veuillez patienter 20 à 30 secondes avant de reformuler votre question.";
+        try {
+          const parsed = JSON.parse(openAiErr);
+          if (parsed.error?.code === 'credit_balance_exhausted' || parsed.error?.code === 'insufficient_quota') {
+            cleanError = "Les serveurs d'IA rencontrent une forte affluence momentanée. Bass Consulting vous invite à réessayer dans quelques instants.";
+          } else if (parsed.error?.message) {
+            cleanError = parsed.error.message;
+          }
+        } catch (_) {}
+
+        return new Response(JSON.stringify({ error: { message: cleanError } }), {
           status: openAiResponse.status,
           headers: { 'Content-Type': 'application/json' }
         });
@@ -160,7 +186,7 @@ export default async function handler(req) {
     }
 
     return new Response(JSON.stringify({
-      error: 'Tous les fournisseurs d\'IA ont échoué ou aucune clé n\'est configurée (GEMINI_API_KEY, GROQ_API_KEY, OPENAI_API_KEY).'
+      error: 'Le service IA PROCURA est temporairement indisponible. Veuillez réessayer dans quelques instants ou contacter le support Bass Consulting.'
     }), {
       status: 503,
       headers: { 'Content-Type': 'application/json' }

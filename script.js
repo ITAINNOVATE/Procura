@@ -373,7 +373,7 @@ Toutes tes réponses doivent être aérées, élégantes et structurées :
     function initSearchWorker() {
         if (searchWorker) return;
         if (window.Worker) {
-            searchWorker = new Worker('searchWorker.js?v=20261106_v21');
+            searchWorker = new Worker('searchWorker.js?v=20261106_v22');
             searchWorker.onmessage = function(e) {
                 if (e.data.type === 'STATUS') {
                     if (e.data.status === 'READY') {
